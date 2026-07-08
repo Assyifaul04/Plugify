@@ -1,0 +1,453 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String?
+  username      String?        @unique
+  email         String?        @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?
+  role          UserRole       @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  suspended     Boolean        @default(false)
+  accounts      Account[]
+  collections   Collection[]
+  follows       Follow[]
+  notifications Notification[]
+  organizations Organization[] @relation("OrgOwner")
+  projects      Project[]      @relation("ProjectAuthor")
+  reports       Report[]       @relation("ReportedBy")
+  reviews       Review[]
+  sessions      Session[]
+  teamMembers   TeamMember[]
+
+  @@map("users")
+}
+
+model Organization {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  icon        String?
+  ownerId     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  owner       User      @relation("OrgOwner", fields: [ownerId], references: [id])
+  projects    Project[]
+
+  @@map("organizations")
+}
+
+model Loader {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  icon           String?
+  platform       GamePlatform    @default(JAVA)
+  supportedTypes ProjectType[]
+  versions       VersionLoader[]
+
+  @@map("loaders")
+}
+
+model GameVersion {
+  id          String               @id @default(cuid())
+  version     String               @unique
+  platform    GamePlatform         @default(JAVA)
+  isMajor     Boolean              @default(true)
+  isBeta      Boolean              @default(false)
+  releaseDate DateTime?
+  versions    VersionGameVersion[]
+
+  @@map("game_versions")
+}
+
+model Category {
+  id           String            @id @default(cuid())
+  name         String
+  slug         String            @unique
+  icon         String?
+  projectTypes ProjectType[]
+  projects     ProjectCategory[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id       String       @id @default(cuid())
+  name     String       @unique
+  slug     String       @unique
+  projects ProjectTag[]
+
+  @@map("tags")
+}
+
+model License {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  spdxId   String?   @unique
+  url      String?
+  projects Project[]
+
+  @@map("licenses")
+}
+
+model Project {
+  id             String              @id @default(cuid())
+  slug           String              @unique
+  name           String
+  summary        String
+  description    String
+  type           ProjectType
+  platform       GamePlatform        @default(JAVA)
+  status         ProjectStatus       @default(DRAFT)
+  iconUrl        String?
+  bannerUrl      String?
+  sourceUrl      String?
+  issuesUrl      String?
+  wikiUrl        String?
+  discordUrl     String?
+  donationUrl    String?
+  downloadCount  BigInt              @default(0)
+  followCount    Int                 @default(0)
+  licenseId      String?
+  authorId       String
+  organizationId String?
+  featured       Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  publishedAt    DateTime?
+  collections    CollectionProject[]
+  follows        Follow[]
+  gallery        GalleryImage[]
+  categories     ProjectCategory[]
+  dependencies   ProjectDependency[] @relation("DependencyProject")
+  dependents     ProjectDependency[] @relation("DependentProject")
+  tags           ProjectTag[]
+  author         User                @relation("ProjectAuthor", fields: [authorId], references: [id])
+  license        License?            @relation(fields: [licenseId], references: [id])
+  organization   Organization?       @relation(fields: [organizationId], references: [id])
+  reports        Report[]
+  reviews        Review[]
+  team           TeamMember[]
+  versions       Version[]
+
+  @@index([type])
+  @@index([platform])
+  @@index([status])
+  @@map("projects")
+}
+
+model ProjectCategory {
+  projectId  String
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, categoryId])
+  @@map("project_categories")
+}
+
+model ProjectTag {
+  projectId String
+  tagId     String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, tagId])
+  @@map("project_tags")
+}
+
+model GalleryImage {
+  id        String   @id @default(cuid())
+  projectId String
+  url       String
+  caption   String?
+  isCover   Boolean  @default(false)
+  ordering  Int      @default(0)
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("gallery_images")
+}
+
+model ProjectDependency {
+  id          String         @id @default(cuid())
+  projectId   String
+  dependsOnId String
+  type        DependencyType @default(REQUIRED)
+  dependsOn   Project        @relation("DependencyProject", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  project     Project        @relation("DependentProject", fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, dependsOnId])
+  @@map("project_dependencies")
+}
+
+model TeamMember {
+  id          String   @id @default(cuid())
+  projectId   String
+  userId      String
+  role        TeamRole @default(CONTRIBUTOR)
+  permissions String[]
+  joinedAt    DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("team_members")
+}
+
+model Version {
+  id            String               @id @default(cuid())
+  projectId     String
+  name          String
+  versionNumber String
+  channel       ReleaseChannel       @default(RELEASE)
+  changelog     String?
+  downloadCount BigInt               @default(0)
+  createdAt     DateTime             @default(now())
+  dependedBy    VersionDependency[]  @relation("VersionDependency")
+  dependencies  VersionDependency[]  @relation("VersionDependent")
+  files         VersionFile[]
+  gameVersions  VersionGameVersion[]
+  loaders       VersionLoader[]
+  project       Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, versionNumber])
+  @@index([projectId])
+  @@map("versions")
+}
+
+model VersionLoader {
+  versionId String
+  loaderId  String
+  loader    Loader  @relation(fields: [loaderId], references: [id], onDelete: Cascade)
+  version   Version @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@id([versionId, loaderId])
+  @@map("version_loaders")
+}
+
+model VersionGameVersion {
+  versionId     String
+  gameVersionId String
+  gameVersion   GameVersion @relation(fields: [gameVersionId], references: [id], onDelete: Cascade)
+  version       Version     @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@id([versionId, gameVersionId])
+  @@map("version_game_versions")
+}
+
+model VersionDependency {
+  id          String         @id @default(cuid())
+  versionId   String
+  dependsOnId String
+  type        DependencyType @default(REQUIRED)
+  dependsOn   Version        @relation("VersionDependency", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  version     Version        @relation("VersionDependent", fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, dependsOnId])
+  @@map("version_dependencies")
+}
+
+model VersionFile {
+  id        String   @id @default(cuid())
+  versionId String
+  filename  String
+  url       String
+  sizeBytes BigInt
+  sha1      String
+  sha512    String
+  isPrimary Boolean  @default(false)
+  fileType  String?
+  createdAt DateTime @default(now())
+  version   Version  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId])
+  @@map("version_files")
+}
+
+model Follow {
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@map("follows")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("reviews")
+}
+
+model Collection {
+  id          String              @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  isPublic    Boolean             @default(true)
+  iconUrl     String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  projects    CollectionProject[]
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("collections")
+}
+
+model CollectionProject {
+  collectionId String
+  projectId    String
+  addedAt      DateTime   @default(now())
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, projectId])
+  @@map("collection_projects")
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  projectId  String
+  reporterId String
+  reason     String
+  details    String?
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+  resolvedAt DateTime?
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reporter   User         @relation("ReportedBy", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum ProjectType {
+  MOD
+  MODPACK
+  SHADER
+  PLUGIN
+  RESOURCE_PACK
+  DATA_PACK
+  MAP
+}
+
+enum GamePlatform {
+  JAVA
+  BEDROCK
+}
+
+enum ProjectStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  ARCHIVED
+  REJECTED
+  DELISTED
+}
+
+enum ReleaseChannel {
+  RELEASE
+  BETA
+  ALPHA
+}
+
+enum DependencyType {
+  REQUIRED
+  OPTIONAL
+  INCOMPATIBLE
+  EMBEDDED
+}
+
+enum TeamRole {
+  OWNER
+  MANAGER
+  CONTRIBUTOR
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
