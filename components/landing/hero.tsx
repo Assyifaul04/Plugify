@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Search, Download, Users, Boxes, ArrowRight } from "lucide-react";
 
 const categories = ["Mods", "Modpacks", "Shaders", "Plugins", "Maps"];
@@ -53,8 +54,8 @@ export default function Hero() {
 
           <p className="mt-5 text-base leading-relaxed text-muted-foreground sm:text-lg">
             Plugify menghimpun ribuan mod, modpack, shader, plugin, dan map
-            pilihan komunitas — lengkap dengan info kompatibilitas versi,
-            supaya kamu tidak perlu tebak-tebakan sebelum install.
+            pilihan komunitas — lengkap dengan info kompatibilitas versi, supaya
+            kamu tidak perlu tebak-tebakan sebelum install.
           </p>
 
           <div className="mt-8">
@@ -91,7 +92,7 @@ export default function Hero() {
           {/* Action Buttons */}
           <div className="mt-10 flex items-center gap-3">
             <Link
-              href="/mods"
+              href="/discover"
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               Jelajahi Mods
@@ -119,9 +120,17 @@ export default function Hero() {
 
         {/* Floating Cards */}
         <div className="relative hidden h-[420px] lg:block">
+          {/* Card 1 */}
           <div className="absolute right-8 top-8 w-72 -rotate-3 rounded-2xl border border-border bg-card/80 p-4 shadow-xl backdrop-blur [animation:float_6s_ease-in-out_infinite] dark:shadow-black/40">
             <div className="flex items-start gap-3">
-              <div className="h-12 w-12 shrink-0 rounded-lg bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-700" />
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                <Image
+                  src="/image/mods/mods1.png"
+                  alt={previewCards[0].title}
+                  fill
+                  className="object-cover"
+                />
+              </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-card-foreground">
                   {previewCards[0].title}
@@ -142,9 +151,17 @@ export default function Hero() {
             </div>
           </div>
 
+          {/* Card 2 */}
           <div className="absolute right-32 top-44 w-72 rotate-2 rounded-2xl border border-border bg-card/90 p-4 shadow-xl backdrop-blur [animation:float_7s_ease-in-out_infinite] [animation-delay:0.8s] dark:shadow-black/40">
             <div className="flex items-start gap-3">
-              <div className="h-12 w-12 shrink-0 rounded-lg bg-gradient-to-br from-orange-400 via-orange-500 to-orange-700" />
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                <Image
+                  src="/image/mods/mods2.png"
+                  alt={previewCards[1].title}
+                  fill
+                  className="object-cover"
+                />
+              </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-card-foreground">
                   {previewCards[1].title}

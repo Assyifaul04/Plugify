@@ -1,6 +1,7 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
   Select,
   SelectContent,
@@ -10,11 +11,39 @@ import {
 } from '@/components/ui/select';
 import { UserRole } from '@prisma/client';
 
-export default function UserFilter({ initialRole = '' }) {
+interface UserFilterProps {
+  initialRole?: string;
+}
+
+export default function UserFilter({ initialRole = '' }: UserFilterProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  
+  // State untuk controlled select
+  const [selectedRole, setSelectedRole] = useState<string>(initialRole || 'ALL');
+
+  // Sync dengan URL params (untuk kasus browser back/forward)
+  useEffect(() => {
+    const roleFromUrl = searchParams.get('role') || 'ALL';
+    if (roleFromUrl !== selectedRole) {
+      setSelectedRole(roleFromUrl);
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync dengan prop initialRole jika berubah
+  useEffect(() => {
+    const newRole = initialRole || 'ALL';
+    if (newRole !== selectedRole) {
+      setSelectedRole(newRole);
+    }
+  }, [initialRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = (value: string) => {
+    // Update state
+    setSelectedRole(value);
+    
+    // Update URL
     const params = new URLSearchParams(window.location.search);
     if (value && value !== 'ALL') {
       params.set('role', value);
@@ -26,7 +55,7 @@ export default function UserFilter({ initialRole = '' }) {
   };
 
   return (
-    <Select defaultValue={initialRole || 'ALL'} onValueChange={handleChange}>
+    <Select value={selectedRole} onValueChange={handleChange}>
       <SelectTrigger className="w-[180px]">
         <SelectValue placeholder="Semua Role" />
       </SelectTrigger>

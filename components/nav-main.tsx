@@ -36,12 +36,40 @@ export function NavMain({
 }) {
   const pathname = usePathname()
 
+  // State untuk mengontrol open/close setiap collapsible
+  const [openItems, setOpenItems] = React.useState<Record<string, boolean>>({})
+
   // Cocokkan path saat ini (mengabaikan query string, mis. ?type=MOD)
-  // supaya menu aktif tetap terdeteksi walau ada filter di URL
   const isPathActive = (url: string) => {
     const basePath = url.split("?")[0]
     if (basePath === "/dashboard") return pathname === "/dashboard"
     return pathname === basePath || pathname.startsWith(`${basePath}/`)
+  }
+
+  // Effect untuk mengupdate state saat pathname berubah
+  React.useEffect(() => {
+    const newOpenState: Record<string, boolean> = {}
+    items.forEach((item) => {
+      const sectionActive =
+        item.isActive ||
+        isPathActive(item.url) ||
+        item.items?.some((sub) => isPathActive(sub.url))
+      
+      // Hanya update jika nilai berbeda
+      if (openItems[item.title] !== sectionActive) {
+        newOpenState[item.title] = sectionActive
+      }
+    })
+    
+    // Update state jika ada perubahan
+    if (Object.keys(newOpenState).length > 0) {
+      setOpenItems((prev) => ({ ...prev, ...newOpenState }))
+    }
+  }, [pathname, items]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handler untuk toggle collapsible
+  const handleOpenChange = (title: string, open: boolean) => {
+    setOpenItems((prev) => ({ ...prev, [title]: open }))
   }
 
   return (
@@ -54,10 +82,14 @@ export function NavMain({
             isPathActive(item.url) ||
             item.items?.some((sub) => isPathActive(sub.url))
 
+          // Gunakan open dari state, fallback ke sectionActive
+          const isOpen = openItems[item.title] ?? sectionActive
+
           return (
             <Collapsible
               key={item.title}
-              defaultOpen={sectionActive}
+              open={isOpen}
+              onOpenChange={(open) => handleOpenChange(item.title, open)}
               className="group/collapsible"
               render={<SidebarMenuItem />}
             >

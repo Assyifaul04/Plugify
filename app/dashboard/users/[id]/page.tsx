@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { UserRole } from '@prisma/client';
-import UserDetail from '../users/user-detail';
+import UserDetail from '@/components/users/user-detail';
 import { notFound } from 'next/navigation';
 
 export default async function UserDetailPage({ params }: { params: { id: string } }) {

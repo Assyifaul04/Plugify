@@ -38,16 +38,14 @@ export function LoginForm({
               href="/"
               className="flex flex-col items-center gap-2 font-medium"
             >
-              <div className="flex size-12 items-center justify-center rounded-xl border border-border bg-secondary/50">
-                <Image
-                  src="/image/logo.svg"
-                  alt="Plugify"
-                  width={40}
-                  height={40}
-                  priority
-                  className="h-10 w-auto"
-                />
-              </div>
+              <Image
+                src="/image/logo.svg"
+                alt="Plugify"
+                width={40}
+                height={40}
+                priority
+                className="h-10 w-auto"
+              />
               <span className="text-lg font-bold tracking-tight text-foreground">
                 Plugify
               </span>

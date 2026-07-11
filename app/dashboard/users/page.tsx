@@ -26,7 +26,6 @@ interface PageProps {
 export default async function UsersPage({ searchParams }: PageProps) {
   const session = await getServerSession(authOptions);
 
-  // Hanya admin yang boleh mengakses halaman ini
   if (!session?.user?.role || session.user.role !== UserRole.ADMIN) {
     redirect("/dashboard");
   }
