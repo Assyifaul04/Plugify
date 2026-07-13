@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -23,7 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2Icon, PlusIcon } from "lucide-react";
+import {
+  Loader2Icon,
+  PlusIcon,
+  ImageUpIcon,
+  XIcon,
+} from "lucide-react";
 
 const PROJECT_TYPES = [
   "MOD",
@@ -43,15 +48,22 @@ interface LoaderFormDialogProps {
   trigger?: React.ReactNode;
 }
 
+function isImageUrl(value: string) {
+  return /^(https?:\/\/|\/)/.test(value.trim());
+}
+
 export default function LoaderFormDialog({
   mode,
   loaderId,
   trigger,
 }: LoaderFormDialogProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
@@ -89,6 +101,46 @@ export default function LoaderFormDialog({
     setSupportedTypes((prev) =>
       prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("File harus berupa gambar");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Ukuran gambar maksimal 2MB");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal mengunggah gambar");
+      }
+
+      setIcon(data.url);
+      toast.success("Gambar berhasil diunggah");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Gagal mengunggah gambar"
+      );
+    } finally {
+      setIsUploading(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -139,17 +191,19 @@ export default function LoaderFormDialog({
     }
   }
 
+  const disabled = isFetching || isUploading;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button className="bg-orange-600 text-white hover:bg-orange-500">
+          <Button className="rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500">
             <PlusIcon className="size-4" />
             Tambah Loader
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-2xl sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
@@ -162,7 +216,7 @@ export default function LoaderFormDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-5 py-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Nama</Label>
               <Input
@@ -172,18 +226,75 @@ export default function LoaderFormDialog({
                 placeholder="cth. Fabric"
                 disabled={isFetching}
                 required
+                className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="icon">Icon (opsional)</Label>
-              <Input
-                id="icon"
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                placeholder="cth. nama ikon atau emoji"
-                disabled={isFetching}
-              />
+              <Label>Icon (opsional)</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                  disabled={disabled}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={disabled}
+                  className="group relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-muted/40 transition-colors hover:border-orange-600/50 hover:bg-orange-600/5 disabled:pointer-events-none disabled:opacity-60"
+                >
+                  {isUploading ? (
+                    <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
+                  ) : icon && isImageUrl(icon) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={icon}
+                      alt="Icon loader"
+                      className="size-full object-cover"
+                    />
+                  ) : icon ? (
+                    <span className="text-xl">{icon}</span>
+                  ) : (
+                    <ImageUpIcon className="size-5 text-muted-foreground transition-colors group-hover:text-orange-600" />
+                  )}
+                </button>
+
+                <div className="flex-1 space-y-1.5">
+                  <Input
+                    value={icon}
+                    onChange={(e) => setIcon(e.target.value)}
+                    placeholder="Emoji, atau upload gambar →"
+                    disabled={disabled}
+                    className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring/40"
+                  />
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={disabled}
+                      className="font-medium text-orange-600 hover:underline disabled:pointer-events-none disabled:opacity-60"
+                    >
+                      Unggah gambar
+                    </button>
+                    {icon && (
+                      <button
+                        type="button"
+                        onClick={() => setIcon("")}
+                        disabled={disabled}
+                        className="flex items-center gap-0.5 hover:text-foreground disabled:pointer-events-none"
+                      >
+                        <XIcon className="size-3" />
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="grid gap-2">
@@ -193,7 +304,7 @@ export default function LoaderFormDialog({
                 onValueChange={setPlatform}
                 disabled={isFetching}
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring/40">
                   <SelectValue placeholder="Pilih platform" />
                 </SelectTrigger>
                 <SelectContent>
@@ -209,19 +320,26 @@ export default function LoaderFormDialog({
             <div className="grid gap-2">
               <Label>Tipe Project Didukung</Label>
               <div className="grid grid-cols-2 gap-2">
-                {PROJECT_TYPES.map((type) => (
-                  <label
-                    key={type}
-                    className="flex items-center gap-2 text-sm text-foreground"
-                  >
-                    <Checkbox
-                      checked={supportedTypes.includes(type)}
-                      onCheckedChange={() => toggleType(type)}
-                      disabled={isFetching}
-                    />
-                    {type}
-                  </label>
-                ))}
+                {PROJECT_TYPES.map((type) => {
+                  const checked = supportedTypes.includes(type);
+                  return (
+                    <label
+                      key={type}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        checked
+                          ? "border-orange-600/40 bg-orange-600/10 text-foreground"
+                          : "border-border text-muted-foreground hover:bg-accent/60"
+                      } ${isFetching ? "pointer-events-none opacity-60" : ""}`}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleType(type)}
+                        disabled={isFetching}
+                      />
+                      {type}
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -232,13 +350,14 @@ export default function LoaderFormDialog({
               variant="outline"
               onClick={() => setOpen(false)}
               disabled={isLoading}
+              className="rounded-full"
             >
               Batal
             </Button>
             <Button
               type="submit"
-              disabled={isLoading || isFetching}
-              className="bg-orange-600 text-white hover:bg-orange-500"
+              disabled={isLoading || isFetching || isUploading}
+              className="rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500"
             >
               {isLoading && <Loader2Icon className="size-4 animate-spin" />}
               Simpan

@@ -4,45 +4,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { UserRole } from '@prisma/client';
 
-// GET: Daftar tag dari project
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-
-    const project = await prisma.project.findUnique({
-      where: { id },
-      select: {
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
-    });
-
-    if (!project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
-    }
-
-    const tags = project.tags.map((pt) => pt.tag);
-    return NextResponse.json(tags);
-  } catch (error) {
-    console.error('Error in GET /api/projects/[id]/tags:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch tags' },
-      { status: 500 }
-    );
-  }
-}
-
-// POST: Tambahkan tag ke project
-export async function POST(
+// PUT: Update tags for a project
+export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -50,13 +13,23 @@ export async function POST(
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== UserRole.ADMIN) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const body = await req.json();
+    const { tagIds } = body;
+
+    if (!Array.isArray(tagIds)) {
+      return NextResponse.json(
+        { error: 'tagIds must be an array' },
+        { status: 400 }
+      );
+    }
+
+    // Cek apakah project ada
     const project = await prisma.project.findUnique({
       where: { id },
-      select: { authorId: true },
     });
 
     if (!project) {
@@ -66,69 +39,26 @@ export async function POST(
       );
     }
 
-    const isAuthor = project.authorId === session.user.id;
-    const isAdmin = session.user.role === UserRole.ADMIN;
-
-    if (!isAuthor && !isAdmin) {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
-    }
-
-    const body = await req.json();
-    const { tagName } = body;
-
-    if (!tagName) {
-      return NextResponse.json(
-        { error: 'tagName is required' },
-        { status: 400 }
-      );
-    }
-
-    const tag = await prisma.tag.findUnique({
-      where: { name: tagName },
+    // Hapus semua tags yang ada
+    await prisma.projectTag.deleteMany({
+      where: { projectId: id },
     });
 
-    if (!tag) {
-      return NextResponse.json(
-        { error: 'Tag not found' },
-        { status: 404 }
-      );
-    }
-
-    // Cek apakah sudah ada
-    const existing = await prisma.projectTag.findUnique({
-      where: {
-        projectId_tagId: {
+    // Tambahkan tags baru
+    if (tagIds.length > 0) {
+      await prisma.projectTag.createMany({
+        data: tagIds.map((tagId: string) => ({
           projectId: id,
-          tagId: tag.id,
-        },
-      },
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'Tag already assigned to this project' },
-        { status: 409 }
-      );
+          tagId,
+        })),
+      });
     }
 
-    await prisma.projectTag.create({
-      data: {
-        projectId: id,
-        tagId: tag.id,
-      },
-    });
-
-    return NextResponse.json(
-      { message: 'Tag added successfully' },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error in POST /api/projects/[id]/tags:', error);
+    console.error('Error in PUT /api/projects/[id]/tags:', error);
     return NextResponse.json(
-      { error: 'Failed to add tag' },
+      { error: 'Failed to update tags' },
       { status: 500 }
     );
   }

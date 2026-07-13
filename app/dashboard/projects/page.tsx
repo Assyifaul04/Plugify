@@ -1,85 +1,95 @@
-import { Suspense } from "react";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { UserRole, ProjectType, ProjectStatus } from "@prisma/client";
+import { UserRole } from "@prisma/client";
+import DashboardProjectsClient from "./page-client";
 
-import ProjectTable from "@/components/projects/project-table";
-import ProjectSearch from "@/components/projects/project-search";
-import ProjectPagination from "@/components/projects/project-pagination";
-import ProjectFormDialog from "@/components/projects/project-form-dialog";
-
-import Loading from "./loading";
-
-interface PageProps {
-  searchParams: Promise<{
+interface DashboardProjectsPageProps {
+  searchParams: {
     page?: string;
-    limit?: string;
     search?: string;
     type?: string;
+    platform?: string;
     status?: string;
-  }>;
+  };
 }
 
-export default async function ProjectsPage({ searchParams }: PageProps) {
+export default async function DashboardProjectsPage({
+  searchParams,
+}: DashboardProjectsPageProps) {
   const session = await getServerSession(authOptions);
 
-  // Hanya admin yang bisa akses halaman ini (atau boleh juga moderator? kita batasi admin saja sesuai contoh)
-  if (!session?.user?.role || session.user.role !== UserRole.ADMIN) {
+  if (!session?.user || session.user.role !== UserRole.ADMIN) {
     redirect("/dashboard");
   }
 
-  const params = await searchParams;
+  const page = Math.max(1, Number(searchParams.page) || 1);
+  const limit = 10;
+  const search = searchParams.search || "";
+  const type = searchParams.type || "";
+  const platform = searchParams.platform || "";
+  const status = searchParams.status || "";
 
-  const page = parseInt(params.page || "1");
-  const limit = parseInt(params.limit || "10");
-  const search = params.search || "";
-  const type = params.type as ProjectType | undefined;
-  const status = params.status as ProjectStatus | undefined;
-
-  // Build where clause
   const where: any = {};
 
   if (search) {
     where.OR = [
-      { name: { contains: search, mode: "insensitive" as const } },
-      { slug: { contains: search, mode: "insensitive" as const } },
-      { summary: { contains: search, mode: "insensitive" as const } },
+      { name: { contains: search, mode: "insensitive" } },
+      { slug: { contains: search, mode: "insensitive" } },
+      { summary: { contains: search, mode: "insensitive" } },
     ];
   }
 
-  if (type) {
+  if (type && type !== "ALL") {
     where.type = type;
   }
 
-  if (status) {
+  if (platform && platform !== "ALL") {
+    where.platform = platform;
+  }
+
+  if (status && status !== "ALL") {
     where.status = status;
   }
 
-  const [projects, total] = await Promise.all([
+  const [projects, totalCount] = await Promise.all([
     prisma.project.findMany({
       where,
+      orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { createdAt: "desc" },
-      include: {
-        author: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        type: true,
+        platform: true,
+        status: true,
+        iconUrl: true,
+        downloadCount: true,
+        createdAt: true,
+        publishedAt: true,
+        organization: {
           select: {
+            id: true,
             name: true,
-            username: true,
+            slug: true,
           },
         },
-        categories: {
-          include: {
-            category: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            image: true,
           },
         },
         _count: {
           select: {
             versions: true,
-            reviews: true,
             follows: true,
+            reviews: true,
           },
         },
       },
@@ -87,25 +97,17 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
     prisma.project.count({ where }),
   ]);
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.ceil(totalCount / limit);
 
   return (
-    <div className="container mx-auto py-4">
-      <h1 className="text-3xl font-bold mb-6">Manajemen Proyek</h1>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div className="flex flex-1 gap-2 w-full sm:w-auto">
-          <ProjectSearch initialSearch={search} initialType={type} initialStatus={status} />
-        </div>
-        <ProjectFormDialog mode="create" />
-      </div>
-
-      <Suspense fallback={<Loading />}>
-        <ProjectTable projects={projects} />
-      </Suspense>
-
-      <div className="mt-6">
-        <ProjectPagination currentPage={page} totalPages={totalPages} />
-      </div>
-    </div>
+    <DashboardProjectsClient
+      projects={projects}
+      currentPage={page}
+      totalPages={totalPages}
+      search={search}
+      type={type}
+      platform={platform}
+      status={status}
+    />
   );
 }

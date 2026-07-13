@@ -399,7 +399,6 @@ model Notification {
 
 enum UserRole {
   USER
-  MODERATOR
   ADMIN
 }
 

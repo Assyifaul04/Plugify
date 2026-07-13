@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
   Select,
@@ -11,40 +10,18 @@ import {
 } from '@/components/ui/select';
 import { UserRole } from '@prisma/client';
 
-interface UserFilterProps {
-  initialRole?: string;
-}
-
-export default function UserFilter({ initialRole = '' }: UserFilterProps) {
+export default function UserFilter() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  
-  // State untuk controlled select
-  const [selectedRole, setSelectedRole] = useState<string>(initialRole || 'ALL');
 
-  // Sync dengan URL params (untuk kasus browser back/forward)
-  useEffect(() => {
-    const roleFromUrl = searchParams.get('role') || 'ALL';
-    if (roleFromUrl !== selectedRole) {
-      setSelectedRole(roleFromUrl);
-    }
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sync dengan prop initialRole jika berubah
-  useEffect(() => {
-    const newRole = initialRole || 'ALL';
-    if (newRole !== selectedRole) {
-      setSelectedRole(newRole);
-    }
-  }, [initialRole]); // eslint-disable-line react-hooks/exhaustive-deps
+  // searchParams adalah satu-satunya sumber kebenaran — otomatis reaktif
+  // terhadap perubahan URL (termasuk tombol back/forward browser), jadi
+  // tidak perlu useState + useEffect untuk sinkronisasi manual.
+  const selectedRole = searchParams.get('role') || 'ALL';
 
   const handleChange = (value: string) => {
-    // Update state
-    setSelectedRole(value);
-    
-    // Update URL
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(searchParams.toString());
     if (value && value !== 'ALL') {
       params.set('role', value);
     } else {
@@ -62,7 +39,6 @@ export default function UserFilter({ initialRole = '' }: UserFilterProps) {
       <SelectContent>
         <SelectItem value="ALL">Semua Role</SelectItem>
         <SelectItem value={UserRole.USER}>User</SelectItem>
-        <SelectItem value={UserRole.MODERATOR}>Moderator</SelectItem>
         <SelectItem value={UserRole.ADMIN}>Admin</SelectItem>
       </SelectContent>
     </Select>

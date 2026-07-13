@@ -15,21 +15,11 @@ import {
 import {
   LayoutDashboardIcon,
   BuildingIcon,
-  ShieldIcon,
   BoxesIcon,
   PackageIcon,
   BlocksIcon,
-  SparklesIcon,
-  PlugIcon,
-  ImageIcon,
-  DatabaseIcon,
-  MapIcon,
-  HourglassIcon,
   TagsIcon,
-  FolderTreeIcon,
-  ScrollTextIcon,
-  LayersIcon,
-  GitBranchIcon,
+  HourglassIcon,
   UsersIcon,
   MessageSquareWarningIcon,
   StarIcon,
@@ -39,14 +29,18 @@ import {
 } from "lucide-react"
 
 // =========================================================
-// Tipe user yang login ke dashboard admin (dari session NextAuth)
-// role menentukan menu mana yang tampil, sesuai enum UserRole di schema.prisma
+// Dashboard ini KHUSUS ADMIN. User biasa (role USER) tidak pernah
+// masuk ke sini — mereka hanya browsing & download di halaman publik.
+// Jadi tidak perlu lagi logika filter per-role (MODERATOR sudah dihapus
+// dari enum UserRole di schema.prisma, tersisa USER dan ADMIN saja).
+// Middleware/API route yang menjaga supaya hanya role === "ADMIN"
+// yang bisa mengakses /dashboard.
 // =========================================================
 type AdminUser = {
   name: string
   email: string
   avatar?: string | null
-  role: "ADMIN" | "MODERATOR" | "USER"
+  role: "ADMIN"
 }
 
 // =========================================================
@@ -72,9 +66,9 @@ const organizations = [
 ]
 
 // =========================================================
-// Menu utama, dikelompokkan sesuai domain model di schema.prisma:
-// Project (+type), Category/Tag/License/Loader/GameVersion, User/Organization,
-// Report/Review, Notification/Collection
+// Menu utama admin, mengikuti domain model di schema.prisma:
+// Project (+type/status), Category/Tag/License/Loader/GameVersion,
+// User/Organization, Report/Review, Notification/Collection
 // =========================================================
 const navMain = [
   {
@@ -101,6 +95,19 @@ const navMain = [
       { title: "Data Packs", url: "/dashboard/projects?type=DATA_PACK" },
       { title: "Maps", url: "/dashboard/projects?type=MAP" },
       { title: "Menunggu Review", url: "/dashboard/projects?status=PENDING_REVIEW" },
+      { title: "Upload Proyek Baru", url: "/dashboard/projects/new" },
+    ],
+  },
+  {
+    title: "Versi & File",
+    url: "/dashboard/versions",
+    icon: <BoxesIcon />,
+    items: [
+      { title: "Semua Versi", url: "/dashboard/versions" },
+      { title: "Upload Versi Baru", url: "/dashboard/versions/new" },
+      { title: "Release", url: "/dashboard/versions?channel=RELEASE" },
+      { title: "Beta", url: "/dashboard/versions?channel=BETA" },
+      { title: "Alpha", url: "/dashboard/versions?channel=ALPHA" },
     ],
   },
   {
@@ -138,37 +145,18 @@ const navMain = [
   },
 ]
 
-// Menu tambahan khusus role MODERATOR ke atas (moderasi konten)
-const navModeration = [
+// Pintasan moderasi harian — antrian review & laporan yang perlu ditindak admin
+const quickLinks = [
   {
-    title: "Antrian Review",
+    name: "Antrian Review",
     url: "/dashboard/projects?status=PENDING_REVIEW",
     icon: <HourglassIcon />,
   },
   {
-    title: "Laporan Masuk",
+    name: "Laporan Masuk",
     url: "/dashboard/reports?status=OPEN",
     icon: <MessageSquareWarningIcon />,
   },
-]
-
-// Menu tambahan khusus ADMIN (data master & manajemen akun)
-const navAdminOnly = [
-  {
-    title: "Manajemen Pengguna",
-    url: "/dashboard/users",
-    icon: <UsersIcon />,
-  },
-  {
-    title: "Organisasi",
-    url: "/dashboard/organizations",
-    icon: <BuildingIcon />,
-  },
-]
-
-// "Quick links" gaya section proyek — di sini dipetakan ke pintasan
-// yang sering dipakai admin/moderator sehari-hari
-const quickLinks = [
   {
     name: "Ulasan Terbaru",
     url: "/dashboard/reviews?sort=recent",
@@ -191,44 +179,13 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 }
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
-  const role = user?.role ?? "USER"
-
-  // Susun menu dinamis sesuai role, mengikuti enum UserRole (USER/MODERATOR/ADMIN) di schema
-  const items = React.useMemo(() => {
-    const base = navMain.filter((section) => {
-      if (section.title === "Komunitas" || section.title === "Pengaturan") {
-        return role === "ADMIN" || role === "MODERATOR"
-      }
-      return true
-    })
-
-    return base.map((section) => {
-      if (section.title === "Komunitas" && role !== "ADMIN") {
-        // MODERATOR tidak melihat "Pengguna" & "Organisasi", hanya moderasi
-        return {
-          ...section,
-          items: section.items.filter(
-            (i) => i.title === "Ulasan" || i.title === "Laporan",
-          ),
-        }
-      }
-      if (section.title === "Pengaturan" && role !== "ADMIN") {
-        return {
-          ...section,
-          items: section.items.filter((i) => i.title === "Umum"),
-        }
-      }
-      return section
-    })
-  }, [role])
-
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <TeamSwitcher teams={organizations} />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={items} />
+        <NavMain items={navMain} />
         <NavProjects projects={quickLinks} />
       </SidebarContent>
       <SidebarFooter>

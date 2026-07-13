@@ -1,8 +1,9 @@
-// components/projects/project-search.tsx
+// app/dashboard/projects/components/project-filters.tsx
 "use client";
 
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -12,49 +13,46 @@ import {
 } from "@/components/ui/select";
 import { Search, X } from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";
-import { ProjectType, ProjectStatus } from "@prisma/client";
-import { cn } from "@/lib/utils";
 
-interface ProjectSearchProps {
+const PROJECT_TYPES = [
+  "MOD",
+  "MODPACK",
+  "SHADER",
+  "PLUGIN",
+  "RESOURCE_PACK",
+  "DATA_PACK",
+  "MAP",
+];
+
+const PLATFORMS = ["JAVA", "BEDROCK"];
+
+const STATUSES = [
+  "DRAFT",
+  "PENDING_REVIEW",
+  "PUBLISHED",
+  "ARCHIVED",
+  "REJECTED",
+  "DELISTED",
+];
+
+interface ProjectFiltersProps {
   initialSearch: string;
-  initialType?: ProjectType;
-  initialStatus?: ProjectStatus;
+  initialType: string;
+  initialPlatform: string;
+  initialStatus: string;
 }
 
-const ALL = "all";
-
-const typeOptions = [
-  { value: ALL, label: "Semua Tipe" },
-  { value: "MOD", label: "Mod" },
-  { value: "MODPACK", label: "Modpack" },
-  { value: "SHADER", label: "Shader" },
-  { value: "PLUGIN", label: "Plugin" },
-  { value: "RESOURCE_PACK", label: "Resource Pack" },
-  { value: "DATA_PACK", label: "Data Pack" },
-  { value: "MAP", label: "Map" },
-];
-
-const statusOptions: { value: string; label: string; dot?: string }[] = [
-  { value: ALL, label: "Semua Status" },
-  { value: "DRAFT", label: "Draf", dot: "bg-white/40" },
-  { value: "PENDING_REVIEW", label: "Menunggu Review", dot: "bg-yellow-400" },
-  { value: "PUBLISHED", label: "Dipublikasikan", dot: "bg-orange-500" },
-  { value: "ARCHIVED", label: "Diarsipkan", dot: "bg-white/20" },
-  { value: "REJECTED", label: "Ditolak", dot: "bg-red-500" },
-  { value: "DELISTED", label: "Dihapus", dot: "bg-red-500/60" },
-];
-
-export default function ProjectSearch({
+export default function ProjectFilters({
   initialSearch,
   initialType,
+  initialPlatform,
   initialStatus,
-}: ProjectSearchProps) {
+}: ProjectFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const handleSearch = useDebouncedCallback((value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     if (value) {
       params.set("search", value);
     } else {
@@ -64,9 +62,9 @@ export default function ProjectSearch({
     router.push(`${pathname}?${params.toString()}`);
   }, 300);
 
-  const handleFilter = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value && value !== ALL) {
+  const handleFilterChange = (key: string, value: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (value && value !== "ALL") {
       params.set(key, value);
     } else {
       params.delete(key);
@@ -75,75 +73,101 @@ export default function ProjectSearch({
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const clearSearch = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("search");
-    params.set("page", "1");
-    router.push(`${pathname}?${params.toString()}`);
+  const clearFilters = () => {
+    router.push(pathname);
   };
 
-  const triggerClass =
-    "border-white/10 bg-black/60 text-white focus:ring-orange-500 data-[placeholder]:text-white/40";
-  const contentClass = "border-white/10 bg-black text-white";
-  const itemClass = "focus:bg-orange-500/20 focus:text-orange-400";
+  const hasFilters = initialSearch || initialType || initialPlatform || initialStatus;
 
   return (
-    <div className="flex flex-1 flex-wrap gap-2">
-      <div className="relative min-w-[200px] flex-1">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-white/40" />
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Cari proyek..."
+          placeholder="Cari project..."
           defaultValue={initialSearch}
           onChange={(e) => handleSearch(e.target.value)}
-          className="border-white/10 bg-black/60 pl-8 pr-8 text-white placeholder:text-white/40 focus-visible:ring-orange-500"
+          className="h-10 rounded-lg border-border bg-muted/40 pl-9 pr-9 text-sm transition-colors placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-orange-600/40 focus-visible:ring-offset-0"
         />
         {initialSearch && (
-          <button
-            onClick={clearSearch}
-            aria-label="Hapus pencarian"
-            className="absolute right-2 top-2.5 text-white/40 transition-colors hover:text-orange-400"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={() => {
+              const params = new URLSearchParams(window.location.search);
+              params.delete("search");
+              params.set("page", "1");
+              router.push(`${pathname}?${params.toString()}`);
+            }}
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         )}
       </div>
 
       <Select
-        defaultValue={initialType || ALL}
-        onValueChange={(value) => handleFilter("type", value)}
+        value={initialType || "ALL"}
+        onValueChange={(value) => handleFilterChange("type", value)}
       >
-        <SelectTrigger className={cn(triggerClass, "w-[150px]")}>
-          <SelectValue placeholder="Tipe" />
+        <SelectTrigger className="h-10 w-[150px] rounded-lg border-border bg-muted/40 text-sm focus-visible:ring-2 focus-visible:ring-orange-600/40">
+          <SelectValue placeholder="All Types" />
         </SelectTrigger>
-        <SelectContent className={contentClass}>
-          {typeOptions.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value} className={itemClass}>
-              {opt.label}
+        <SelectContent>
+          <SelectItem value="ALL">All Types</SelectItem>
+          {PROJECT_TYPES.map((type) => (
+            <SelectItem key={type} value={type}>
+              {type}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
       <Select
-        defaultValue={initialStatus || ALL}
-        onValueChange={(value) => handleFilter("status", value)}
+        value={initialPlatform || "ALL"}
+        onValueChange={(value) => handleFilterChange("platform", value)}
       >
-        <SelectTrigger className={cn(triggerClass, "w-[170px]")}>
-          <SelectValue placeholder="Status" />
+        <SelectTrigger className="h-10 w-[150px] rounded-lg border-border bg-muted/40 text-sm focus-visible:ring-2 focus-visible:ring-orange-600/40">
+          <SelectValue placeholder="All Platforms" />
         </SelectTrigger>
-        <SelectContent className={contentClass}>
-          {statusOptions.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value} className={itemClass}>
-              <span className="flex items-center gap-2">
-                {opt.dot && (
-                  <span className={cn("h-1.5 w-1.5 rounded-full", opt.dot)} />
-                )}
-                {opt.label}
-              </span>
+        <SelectContent>
+          <SelectItem value="ALL">All Platforms</SelectItem>
+          {PLATFORMS.map((platform) => (
+            <SelectItem key={platform} value={platform}>
+              {platform}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+
+      <Select
+        value={initialStatus || "ALL"}
+        onValueChange={(value) => handleFilterChange("status", value)}
+      >
+        <SelectTrigger className="h-10 w-[150px] rounded-lg border-border bg-muted/40 text-sm focus-visible:ring-2 focus-visible:ring-orange-600/40">
+          <SelectValue placeholder="All Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="ALL">All Status</SelectItem>
+          {STATUSES.map((status) => (
+            <SelectItem key={status} value={status}>
+              {status.replace(/_/g, " ")}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {hasFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearFilters}
+          className="h-9 rounded-full text-muted-foreground hover:text-foreground"
+        >
+          <X className="mr-1 h-3 w-3" />
+          Reset
+        </Button>
+      )}
     </div>
   );
 }

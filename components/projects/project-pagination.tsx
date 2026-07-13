@@ -1,113 +1,82 @@
-// components/projects/project-pagination.tsx
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 interface ProjectPaginationProps {
   currentPage: number;
   totalPages: number;
 }
 
-export default function ProjectPagination({ currentPage, totalPages }: ProjectPaginationProps) {
+export default function ProjectPagination({
+  currentPage,
+  totalPages,
+}: ProjectPaginationProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const goToPage = (page: number) => {
-    if (page < 1 || page > totalPages || page === currentPage) return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", page.toString());
-    router.push(`${pathname}?${params.toString()}`);
-  };
-
   if (totalPages <= 1) return null;
 
-  // Bangun daftar halaman yang ditampilkan, dengan ellipsis kalau terlalu banyak
-  const getPageNumbers = (): (number | "ellipsis")[] => {
-    const pages: (number | "ellipsis")[] = [];
-    const siblingCount = 1;
+  function goToPage(page: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(page));
+    router.push(`${pathname}?${params.toString()}`);
+  }
 
-    const start = Math.max(2, currentPage - siblingCount);
-    const end = Math.min(totalPages - 1, currentPage + siblingCount);
-
-    pages.push(1);
-
-    if (start > 2) pages.push("ellipsis");
-
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-
-    if (end < totalPages - 1) pages.push("ellipsis");
-
-    if (totalPages > 1) pages.push(totalPages);
-
-    return pages;
-  };
-
-  const pageNumbers = getPageNumbers();
-
-  const navButtonClass =
-    "h-9 w-9 border-white/10 bg-black/60 text-white hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-30 disabled:hover:bg-black/60 disabled:hover:text-white";
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
+    (p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1
+  );
 
   return (
-    <nav
-      aria-label="Pagination"
-      className="flex items-center justify-center gap-1.5"
-    >
+    <div className="flex items-center justify-center gap-1">
       <Button
         variant="outline"
         size="icon"
-        onClick={() => goToPage(currentPage - 1)}
+        className="h-9 w-9 rounded-full border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
         disabled={currentPage <= 1}
-        className={navButtonClass}
-        aria-label="Halaman sebelumnya"
+        onClick={() => goToPage(currentPage - 1)}
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeftIcon className="h-4 w-4" />
+        <span className="sr-only">Previous page</span>
       </Button>
 
-      <div className="flex items-center gap-1.5">
-        {pageNumbers.map((page, idx) =>
-          page === "ellipsis" ? (
-            <span
-              key={`ellipsis-${idx}`}
-              className="flex h-9 w-9 items-center justify-center text-sm text-white/30"
-            >
-              …
-            </span>
-          ) : (
+      {pages.map((page, idx) => {
+        const prevPage = pages[idx - 1];
+        const showEllipsis = prevPage !== undefined && page - prevPage > 1;
+
+        return (
+          <div key={page} className="flex items-center gap-1">
+            {showEllipsis && (
+              <span className="px-1 text-sm text-muted-foreground">…</span>
+            )}
             <Button
-              key={page}
-              variant="outline"
+              variant={page === currentPage ? "default" : "outline"}
               size="icon"
               onClick={() => goToPage(page)}
-              aria-current={page === currentPage ? "page" : undefined}
-              className={cn(
-                "h-9 w-9 border-white/10 text-sm font-medium",
+              className={
                 page === currentPage
-                  ? "border-orange-500 bg-orange-500 text-black hover:bg-orange-400"
-                  : "bg-black/60 text-white/70 hover:bg-orange-500/10 hover:text-orange-400"
-              )}
+                  ? "h-9 w-9 rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500"
+                  : "h-9 w-9 rounded-full border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              }
             >
               {page}
             </Button>
-          )
-        )}
-      </div>
+          </div>
+        );
+      })}
 
       <Button
         variant="outline"
         size="icon"
-        onClick={() => goToPage(currentPage + 1)}
+        className="h-9 w-9 rounded-full border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
         disabled={currentPage >= totalPages}
-        className={navButtonClass}
-        aria-label="Halaman berikutnya"
+        onClick={() => goToPage(currentPage + 1)}
       >
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRightIcon className="h-4 w-4" />
+        <span className="sr-only">Next page</span>
       </Button>
-    </nav>
+    </div>
   );
 }

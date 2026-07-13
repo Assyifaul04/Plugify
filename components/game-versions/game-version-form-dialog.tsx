@@ -136,13 +136,13 @@ export default function GameVersionFormDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button className="bg-orange-600 text-white hover:bg-orange-500">
+          <Button className="rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500">
             <PlusIcon className="size-4" />
             Tambah Game Version
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-2xl sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
@@ -155,7 +155,7 @@ export default function GameVersionFormDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-5 py-4">
             <div className="grid gap-2">
               <Label htmlFor="version">Versi</Label>
               <Input
@@ -165,6 +165,7 @@ export default function GameVersionFormDialog({
                 placeholder="cth. 1.20.1"
                 disabled={isFetching}
                 required
+                className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             </div>
 
@@ -175,7 +176,7 @@ export default function GameVersionFormDialog({
                 onValueChange={setPlatform}
                 disabled={isFetching}
               >
-                <SelectTrigger>
+                <SelectTrigger className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring/40">
                   <SelectValue placeholder="Pilih platform" />
                 </SelectTrigger>
                 <SelectContent>
@@ -196,26 +197,42 @@ export default function GameVersionFormDialog({
                 value={releaseDate}
                 onChange={(e) => setReleaseDate(e.target.value)}
                 disabled={isFetching}
+                className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             </div>
 
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox
-                  checked={isMajor}
-                  onCheckedChange={(checked) => setIsMajor(checked === true)}
-                  disabled={isFetching}
-                />
-                Versi Major
-              </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox
-                  checked={isBeta}
-                  onCheckedChange={(checked) => setIsBeta(checked === true)}
-                  disabled={isFetching}
-                />
-                Versi Beta
-              </label>
+            <div className="grid gap-2">
+              <Label>Status</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <label
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    isMajor
+                      ? "border-orange-600/40 bg-orange-600/10 text-foreground"
+                      : "border-border text-muted-foreground hover:bg-accent/60"
+                  } ${isFetching ? "pointer-events-none opacity-60" : ""}`}
+                >
+                  <Checkbox
+                    checked={isMajor}
+                    onCheckedChange={(checked) => setIsMajor(checked === true)}
+                    disabled={isFetching}
+                  />
+                  Major
+                </label>
+                <label
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                    isBeta
+                      ? "border-yellow-500/40 bg-yellow-500/10 text-foreground"
+                      : "border-border text-muted-foreground hover:bg-accent/60"
+                  } ${isFetching ? "pointer-events-none opacity-60" : ""}`}
+                >
+                  <Checkbox
+                    checked={isBeta}
+                    onCheckedChange={(checked) => setIsBeta(checked === true)}
+                    disabled={isFetching}
+                  />
+                  Beta
+                </label>
+              </div>
             </div>
           </div>
 
@@ -225,15 +242,16 @@ export default function GameVersionFormDialog({
               variant="outline"
               onClick={() => setOpen(false)}
               disabled={isLoading}
+              className="rounded-full"
             >
               Batal
             </Button>
             <Button
               type="submit"
               disabled={isLoading || isFetching}
-              className="bg-orange-600 text-white hover:bg-orange-500"
+              className="rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500"
             >
-              {isLoading && <Loader2Icon className="size-4 animate-spin" />}
+              {isLoading && <Loader2Icon className="mr-2 size-4 animate-spin" />}
               Simpan
             </Button>
           </DialogFooter>

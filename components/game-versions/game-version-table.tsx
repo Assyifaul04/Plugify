@@ -37,28 +37,49 @@ function formatDate(date: Date | string | null) {
 export default function GameVersionTable({ gameVersions }: GameVersionTableProps) {
   if (gameVersions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
-        <p className="text-sm text-muted-foreground">Belum ada game version.</p>
+      <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted/20 py-20 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-xl">
+          🎮
+        </div>
+        <p className="text-sm font-medium text-foreground">Belum ada game version</p>
+        <p className="text-sm text-muted-foreground">
+          Game version yang kamu buat akan muncul di sini.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-border">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>Versi</TableHead>
-            <TableHead>Platform</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Tanggal Rilis</TableHead>
-            <TableHead className="text-center">Dipakai Project</TableHead>
-            <TableHead className="text-right">Aksi</TableHead>
+          <TableRow className="border-b border-border bg-muted/40 hover:bg-muted/40">
+            <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Versi
+            </TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Platform
+            </TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Status
+            </TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Tanggal Rilis
+            </TableHead>
+            <TableHead className="text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Dipakai Project
+            </TableHead>
+            <TableHead className="text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Aksi
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {gameVersions.map((gv) => (
-            <TableRow key={gv.id}>
+            <TableRow
+              key={gv.id}
+              className="border-b border-border/60 transition-colors last:border-0 hover:bg-accent/60"
+            >
               <TableCell className="font-medium text-foreground">
                 {gv.version}
               </TableCell>
@@ -67,8 +88,8 @@ export default function GameVersionTable({ gameVersions }: GameVersionTableProps
                   variant="outline"
                   className={
                     gv.platform === "JAVA"
-                      ? "border-orange-500/40 text-orange-500"
-                      : "border-emerald-500/40 text-emerald-500"
+                      ? "rounded-full border-orange-500/40 bg-orange-500/10 text-orange-500"
+                      : "rounded-full border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
                   }
                 >
                   {gv.platform}
@@ -77,20 +98,23 @@ export default function GameVersionTable({ gameVersions }: GameVersionTableProps
               <TableCell>
                 <div className="flex flex-wrap gap-1">
                   {gv.isMajor && (
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge
+                      variant="secondary"
+                      className="rounded-full text-xs font-medium"
+                    >
                       Major
                     </Badge>
                   )}
                   {gv.isBeta && (
                     <Badge
                       variant="outline"
-                      className="border-yellow-500/40 text-xs text-yellow-500"
+                      className="rounded-full border-yellow-500/40 bg-yellow-500/10 text-xs font-medium text-yellow-500"
                     >
                       Beta
                     </Badge>
                   )}
                   {!gv.isMajor && !gv.isBeta && (
-                    <span className="text-muted-foreground">—</span>
+                    <span className="text-sm text-muted-foreground">—</span>
                   )}
                 </div>
               </TableCell>
@@ -98,7 +122,12 @@ export default function GameVersionTable({ gameVersions }: GameVersionTableProps
                 {formatDate(gv.releaseDate)}
               </TableCell>
               <TableCell className="text-center">
-                <Badge variant="secondary">{gv._count.versions}</Badge>
+                <Badge
+                  variant="secondary"
+                  className="rounded-full px-2.5 py-0.5 font-medium"
+                >
+                  {gv._count.versions}
+                </Badge>
               </TableCell>
               <TableCell className="text-right">
                 <GameVersionRowActions gameVersion={gv} />

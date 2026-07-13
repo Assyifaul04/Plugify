@@ -34,18 +34,18 @@ export default function TagSearch({ initialSearch }: TagSearchProps) {
 
   return (
     <div className="relative flex-1 max-w-sm">
-      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         placeholder="Cari tag..."
         defaultValue={initialSearch}
         onChange={(e) => handleSearch(e.target.value)}
-        className="pl-8 pr-8"
+        className="h-10 rounded-lg border-border bg-muted/40 pl-9 pr-9 text-sm transition-colors placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-orange-600/40 focus-visible:ring-offset-0"
       />
       {initialSearch && (
         <Button
           variant="ghost"
           size="sm"
-          className="absolute right-0 top-0 h-9 px-2"
+          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
           onClick={clearSearch}
         >
           <X className="h-4 w-4" />

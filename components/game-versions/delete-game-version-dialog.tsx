@@ -58,7 +58,7 @@ export default function DeleteGameVersionDialog({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-      <AlertDialogContent>
+      <AlertDialogContent className="rounded-2xl">
         <AlertDialogHeader>
           <AlertDialogTitle>
             Hapus game version &quot;{gameVersionLabel}&quot;?
@@ -68,18 +68,23 @@ export default function DeleteGameVersionDialog({
             digunakan oleh project tidak bisa dihapus.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Batal</AlertDialogCancel>
+        <AlertDialogFooter className="gap-2">
+          <AlertDialogCancel
+            disabled={isLoading}
+            className="rounded-full border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            Batal
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
               handleDelete();
             }}
             disabled={isLoading}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="rounded-full bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90"
           >
-            {isLoading && <Loader2Icon className="size-4 animate-spin" />}
-            <Trash2Icon className="size-4" />
+            {isLoading && <Loader2Icon className="mr-2 size-4 animate-spin" />}
+            <Trash2Icon className="mr-2 size-4" />
             Hapus
           </AlertDialogAction>
         </AlertDialogFooter>

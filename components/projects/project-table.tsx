@@ -1,7 +1,4 @@
-// components/projects/project-table.tsx
-"use client";
-
-import { Project, User, Category } from "@prisma/client";
+import Link from "next/link";
 import {
   Table,
   TableBody,
@@ -11,209 +8,215 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-  Archive,
-  CheckCircle,
-  XCircle,
-  Clock,
-  FolderOpen,
-} from "lucide-react";
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import ProjectRowActions from "./project-row-actions";
 
-interface ProjectWithRelations extends Project {
+export interface ProjectListItem {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  platform: string;
+  status: string;
+  iconUrl: string | null;
+  downloadCount: string | number;
   author: {
+    id: string;
     name: string | null;
     username: string | null;
+    image: string | null;
   };
-  categories: {
-    category: Category;
-  }[];
+  organization?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+  createdAt: string | Date;
+  publishedAt: string | Date | null;
   _count: {
     versions: number;
-    reviews: number;
     follows: number;
+    reviews: number;
   };
 }
 
 interface ProjectTableProps {
-  projects: ProjectWithRelations[];
+  projects: ProjectListItem[];
 }
 
-const typeLabels: Record<string, string> = {
-  MOD: "Mod",
-  MODPACK: "Modpack",
-  SHADER: "Shader",
-  PLUGIN: "Plugin",
-  RESOURCE_PACK: "Resource Pack",
-  DATA_PACK: "Data Pack",
-  MAP: "Map",
+const STATUS_COLORS = {
+  DRAFT: "border-gray-500/40 bg-gray-500/10 text-gray-500",
+  PENDING_REVIEW: "border-yellow-500/40 bg-yellow-500/10 text-yellow-500",
+  PUBLISHED: "border-green-500/40 bg-green-500/10 text-green-500",
+  ARCHIVED: "border-slate-500/40 bg-slate-500/10 text-slate-500",
+  REJECTED: "border-red-500/40 bg-red-500/10 text-red-500",
+  DELISTED: "border-purple-500/40 bg-purple-500/10 text-purple-500",
 };
 
-const statusLabels: Record<string, string> = {
-  PUBLISHED: "Dipublikasikan",
-  DRAFT: "Draf",
-  PENDING_REVIEW: "Menunggu Review",
-  ARCHIVED: "Diarsipkan",
-  REJECTED: "Ditolak",
-  DELISTED: "Dihapus",
+const TYPE_BADGE_COLORS = {
+  MOD: "border-blue-500/40 bg-blue-500/10 text-blue-500",
+  MODPACK: "border-purple-500/40 bg-purple-500/10 text-purple-500",
+  SHADER: "border-indigo-500/40 bg-indigo-500/10 text-indigo-500",
+  PLUGIN: "border-emerald-500/40 bg-emerald-500/10 text-emerald-500",
+  RESOURCE_PACK: "border-pink-500/40 bg-pink-500/10 text-pink-500",
+  DATA_PACK: "border-cyan-500/40 bg-cyan-500/10 text-cyan-500",
+  MAP: "border-amber-500/40 bg-amber-500/10 text-amber-500",
 };
 
-const statusColor: Record<string, string> = {
-  PUBLISHED: "border-orange-500/30 bg-orange-500/10 text-orange-400",
-  DRAFT: "border-white/15 bg-white/5 text-white/60",
-  PENDING_REVIEW: "border-yellow-500/30 bg-yellow-500/10 text-yellow-400",
-  ARCHIVED: "border-white/10 bg-white/[0.03] text-white/40",
-  REJECTED: "border-red-500/30 bg-red-500/10 text-red-400",
-  DELISTED: "border-red-500/20 bg-red-500/5 text-red-400/70",
-};
-
-const statusIcon: Record<string, React.ReactNode> = {
-  PUBLISHED: <CheckCircle className="h-3 w-3" />,
-  DRAFT: <Clock className="h-3 w-3" />,
-  PENDING_REVIEW: <Clock className="h-3 w-3" />,
-  ARCHIVED: <Archive className="h-3 w-3" />,
-  REJECTED: <XCircle className="h-3 w-3" />,
-  DELISTED: <XCircle className="h-3 w-3" />,
-};
+function formatDate(date: string | Date | null) {
+  if (!date) return "—";
+  return new Date(date).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export default function ProjectTable({ projects }: ProjectTableProps) {
   if (projects.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-white/10 bg-black/60 p-12 text-center">
-        <div className="rounded-full bg-white/5 p-3 text-white/30">
-          <FolderOpen className="h-5 w-5" />
+      <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-muted/20 py-20 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-xl">
+          📦
         </div>
-        <p className="text-sm text-white/50">Tidak ada proyek ditemukan</p>
+        <p className="text-sm font-medium text-foreground">Belum ada project</p>
+        <p className="text-sm text-muted-foreground">
+          Project yang dibuat oleh user akan muncul di sini.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-white/10 bg-black/60">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <Table>
         <TableHeader>
-          <TableRow className="border-white/10 hover:bg-transparent">
-            <TableHead className="text-white/50">Nama Proyek</TableHead>
-            <TableHead className="text-white/50">Author</TableHead>
-            <TableHead className="text-white/50">Tipe</TableHead>
-            <TableHead className="text-white/50">Status</TableHead>
-            <TableHead className="text-white/50">Kategori</TableHead>
-            <TableHead className="text-center text-white/50">Versi</TableHead>
-            <TableHead className="text-right text-white/50">Aksi</TableHead>
+          <TableRow className="border-b border-border bg-muted/40 hover:bg-muted/40">
+            <TableHead className="w-14"></TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Nama
+            </TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Type
+            </TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Platform
+            </TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Status
+            </TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Author
+            </TableHead>
+            <TableHead className="text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Versi
+            </TableHead>
+            <TableHead className="text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Downloads
+            </TableHead>
+            <TableHead className="text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Aksi
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {projects.map((project) => (
             <TableRow
               key={project.id}
-              className="border-white/10 hover:bg-white/[0.03]"
+              className="border-b border-border/60 transition-colors last:border-0 hover:bg-accent/60"
             >
-              <TableCell className="font-medium">
-                <Link
-                  href={`/dashboard/projects/${project.id}`}
-                  className="text-white hover:text-orange-400 hover:underline"
-                >
-                  {project.name}
-                </Link>
-                <div className="text-xs text-white/40">{project.slug}</div>
-              </TableCell>
-              <TableCell className="text-white/70">
-                {project.author.name || project.author.username}
+              <TableCell>
+                {project.iconUrl ? (
+                  <Avatar className="h-9 w-9 rounded-lg">
+                    <AvatarImage src={project.iconUrl} alt={project.name} />
+                    <AvatarFallback className="rounded-lg bg-muted text-xs uppercase">
+                      {project.name.substring(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <span className="text-xs uppercase">
+                      {project.name.substring(0, 2)}
+                    </span>
+                  </span>
+                )}
               </TableCell>
               <TableCell>
-                <Badge
-                  variant="outline"
-                  className="border-white/15 bg-white/5 text-white/70"
-                >
-                  {typeLabels[project.type] || project.type}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "flex w-fit items-center gap-1",
-                    statusColor[project.status]
-                  )}
-                >
-                  {statusIcon[project.status]}
-                  {statusLabels[project.status] || project.status}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {project.categories.slice(0, 2).map((pc) => (
-                    <Badge
-                      key={pc.category.id}
-                      variant="secondary"
-                      className="border-white/10 bg-white/5 text-xs text-white/70"
-                    >
-                      {pc.category.name}
-                    </Badge>
-                  ))}
-                  {project.categories.length > 2 && (
-                    <Badge
-                      variant="secondary"
-                      className="border-white/10 bg-white/5 text-xs text-white/50"
-                    >
-                      +{project.categories.length - 2}
-                    </Badge>
+                <div className="flex flex-col">
+                  <Link
+                    href={`/dashboard/projects/${project.id}`}
+                    className="font-medium text-foreground hover:text-orange-600 hover:underline"
+                  >
+                    {project.name}
+                  </Link>
+                  {project.organization && (
+                    <span className="text-xs text-muted-foreground">
+                      {project.organization.name}
+                    </span>
                   )}
                 </div>
               </TableCell>
-              <TableCell className="text-center text-white/70">
-                {project._count.versions}
+              <TableCell>
+                <Badge
+                  variant="outline"
+                  className={
+                    TYPE_BADGE_COLORS[project.type as keyof typeof TYPE_BADGE_COLORS] ||
+                    "border-border"
+                  }
+                >
+                  {project.type}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant="outline"
+                  className={
+                    project.platform === "JAVA"
+                      ? "rounded-full border-orange-500/40 bg-orange-500/10 text-orange-500"
+                      : "rounded-full border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                  }
+                >
+                  {project.platform}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant="outline"
+                  className={
+                    STATUS_COLORS[project.status as keyof typeof STATUS_COLORS] ||
+                    "border-border"
+                  }
+                >
+                  {project.status.replace(/_/g, " ")}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src={project.author.image || ""} />
+                    <AvatarFallback className="text-xs">
+                      {project.author.name?.substring(0, 2).toUpperCase() ||
+                        project.author.username?.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">
+                    {project.author.name || project.author.username}
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell className="text-center">
+                <Badge
+                  variant="secondary"
+                  className="rounded-full px-2.5 py-0.5 font-medium"
+                >
+                  {project._count.versions}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-center text-sm font-medium">
+                {Number(project.downloadCount).toLocaleString()}
               </TableCell>
               <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-white/60 hover:bg-white/5 hover:text-orange-400"
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="border-white/10 bg-black text-white"
-                  >
-                    <DropdownMenuItem
-                      asChild
-                      className="focus:bg-orange-500/20 focus:text-orange-400"
-                    >
-                      <Link href={`/dashboard/projects/${project.id}`}>
-                        <Eye className="mr-2 h-4 w-4" /> Detail
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      asChild
-                      className="focus:bg-orange-500/20 focus:text-orange-400"
-                    >
-                      <Link href={`/dashboard/projects/${project.id}/edit`}>
-                        <Edit className="mr-2 h-4 w-4" /> Edit
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-white/10" />
-                    <DropdownMenuItem className="text-red-400 focus:bg-red-500/10 focus:text-red-400">
-                      <Trash2 className="mr-2 h-4 w-4" /> Hapus
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <ProjectRowActions project={project} />
               </TableCell>
             </TableRow>
           ))}

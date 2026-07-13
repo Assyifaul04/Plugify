@@ -71,10 +71,20 @@ export default async function CategoriesPage({ searchParams }: PageProps) {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="container mx-auto py-4">
-      <h1 className="text-3xl font-bold mb-6">Manajemen Kategori</h1>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div className="flex flex-1 gap-2 w-full sm:w-auto">
+    <div className="container mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <div className="mb-8 flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          Manajemen Kategori
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {total > 0
+            ? `${total} kategori terdaftar${search ? ` untuk "${search}"` : ""}`
+            : "Kelola kategori untuk mengelompokkan project."}
+        </p>
+      </div>
+
+      <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="w-full sm:w-auto">
           <CategorySearch initialSearch={search} />
         </div>
         <CategoryFormDialog mode="create" />
@@ -84,9 +94,11 @@ export default async function CategoriesPage({ searchParams }: PageProps) {
         <CategoryTable categories={categories} />
       </Suspense>
 
-      <div className="mt-6">
-        <CategoryPagination currentPage={page} totalPages={totalPages} />
-      </div>
+      {totalPages > 1 && (
+        <div className="mt-6">
+          <CategoryPagination currentPage={page} totalPages={totalPages} />
+        </div>
+      )}
     </div>
   );
 }

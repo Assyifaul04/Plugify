@@ -2,30 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { UserRole, ProjectStatus } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 
-// GET: Detail project by ID atau slug
+// GET: Ambil project by ID (detail)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
 
-    const project = await prisma.project.findFirst({
-      where: {
-        OR: [{ id }, { slug: id }],
-      },
+    if (!session?.user || session.user.role !== UserRole.ADMIN) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id },
       include: {
         author: {
           select: {
             id: true,
             name: true,
             username: true,
+            email: true,
             image: true,
+            role: true,
           },
         },
-        license: true,
         organization: {
           select: {
             id: true,
@@ -34,54 +38,69 @@ export async function GET(
             icon: true,
           },
         },
+        license: {
+          select: {
+            id: true,
+            name: true,
+            spdxId: true,
+            url: true,
+          },
+        },
         categories: {
           include: {
-            category: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                icon: true,
+              },
+            },
           },
         },
         tags: {
           include: {
-            tag: true,
+            tag: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
           },
         },
         versions: {
           orderBy: { createdAt: 'desc' },
-          include: {
-            gameVersions: {
-              include: {
-                gameVersion: true,
+          take: 5,
+          select: {
+            id: true,
+            versionNumber: true,
+            name: true,
+            channel: true,
+            createdAt: true,
+            downloadCount: true,
+            _count: {
+              select: {
+                files: true,
               },
             },
-            loaders: {
-              include: {
-                loader: true,
-              },
-            },
-            files: true,
           },
         },
         gallery: {
           orderBy: { ordering: 'asc' },
+          select: {
+            id: true,
+            url: true,
+            caption: true,
+            isCover: true,
+          },
         },
         _count: {
           select: {
+            versions: true,
             follows: true,
             reviews: true,
             reports: true,
-          },
-        },
-        reviews: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                username: true,
-                image: true,
-              },
-            },
           },
         },
       },
@@ -93,6 +112,16 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Log untuk debugging
+    console.log('Project data:', {
+      id: project.id,
+      name: project.name,
+      summary: project.summary,
+      description: project.description?.substring(0, 50),
+      iconUrl: project.iconUrl,
+      bannerUrl: project.bannerUrl,
+    });
 
     return NextResponse.json(project);
   } catch (error) {
@@ -113,34 +142,13 @@ export async function PUT(
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== UserRole.ADMIN) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      select: { authorId: true },
-    });
-
-    if (!project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      );
-    }
-
-    // Cek permission: hanya author atau admin
-    const isAuthor = project.authorId === session.user.id;
-    const isAdmin = session.user.role === UserRole.ADMIN;
-
-    if (!isAuthor && !isAdmin) {
-      return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
-      );
-    }
-
     const body = await req.json();
+    console.log('Update project body:', body);
+
     const {
       name,
       summary,
@@ -159,70 +167,73 @@ export async function PUT(
       organizationId,
     } = body;
 
-    // Siapkan data update
-    const updateData: any = {};
+    // Cek apakah project ada
+    const existingProject = await prisma.project.findUnique({
+      where: { id },
+    });
 
-    if (name) {
-      // Generate slug baru jika nama berubah
-      const newSlug = name
+    if (!existingProject) {
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      );
+    }
+
+    // Validasi
+    if (!name || !summary || !description || !type || !platform) {
+      return NextResponse.json(
+        { error: 'Name, summary, description, type, and platform are required' },
+        { status: 400 }
+      );
+    }
+
+    // Generate slug jika name berubah
+    let slug = existingProject.slug;
+    if (name !== existingProject.name) {
+      const baseSlug = name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
 
-      // Cek duplikat slug
-      const existing = await prisma.project.findFirst({
+      slug = baseSlug;
+      let suffix = 2;
+      while (await prisma.project.findFirst({
         where: {
-          slug: newSlug,
+          slug,
           NOT: { id },
         },
-      });
-      if (existing) {
-        return NextResponse.json(
-          { error: 'Project with this name already exists' },
-          { status: 409 }
-        );
-      }
-      updateData.name = name;
-      updateData.slug = newSlug;
-    }
-
-    if (summary) updateData.summary = summary;
-    if (description) updateData.description = description;
-    if (type) updateData.type = type;
-    if (platform) updateData.platform = platform;
-    if (status) {
-      updateData.status = status;
-      if (status === ProjectStatus.PUBLISHED && !project.publishedAt) {
-        updateData.publishedAt = new Date();
+      })) {
+        slug = `${baseSlug}-${suffix}`;
+        suffix++;
       }
     }
-    if (iconUrl !== undefined) updateData.iconUrl = iconUrl;
-    if (bannerUrl !== undefined) updateData.bannerUrl = bannerUrl;
-    if (sourceUrl !== undefined) updateData.sourceUrl = sourceUrl;
-    if (issuesUrl !== undefined) updateData.issuesUrl = issuesUrl;
-    if (wikiUrl !== undefined) updateData.wikiUrl = wikiUrl;
-    if (discordUrl !== undefined) updateData.discordUrl = discordUrl;
-    if (donationUrl !== undefined) updateData.donationUrl = donationUrl;
-    if (licenseId !== undefined) updateData.licenseId = licenseId;
-    if (organizationId !== undefined) updateData.organizationId = organizationId;
 
-    const updated = await prisma.project.update({
+    const project = await prisma.project.update({
       where: { id },
-      data: updateData,
-      include: {
-        author: {
-          select: { id: true, name: true, username: true },
-        },
-        categories: {
-          include: { category: true },
-        },
-        tags: {
-          include: { tag: true },
-        },
+      data: {
+        name,
+        slug,
+        summary,
+        description,
+        type,
+        platform,
+        status,
+        iconUrl: iconUrl || null,
+        bannerUrl: bannerUrl || null,
+        sourceUrl: sourceUrl || null,
+        issuesUrl: issuesUrl || null,
+        wikiUrl: wikiUrl || null,
+        discordUrl: discordUrl || null,
+        donationUrl: donationUrl || null,
+        licenseId: licenseId || null,
+        organizationId: organizationId || null,
+        publishedAt: status === 'PUBLISHED' && existingProject.status !== 'PUBLISHED' 
+          ? new Date() 
+          : existingProject.publishedAt,
       },
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json(project);
   } catch (error) {
     console.error('Error in PUT /api/projects/[id]:', error);
     return NextResponse.json(
@@ -241,13 +252,23 @@ export async function DELETE(
     const { id } = await params;
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== UserRole.ADMIN) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Cek apakah project ada
     const project = await prisma.project.findUnique({
       where: { id },
-      select: { authorId: true },
+      include: {
+        _count: {
+          select: {
+            versions: true,
+            follows: true,
+            reviews: true,
+            reports: true,
+          },
+        },
+      },
     });
 
     if (!project) {
@@ -257,22 +278,26 @@ export async function DELETE(
       );
     }
 
-    const isAuthor = project.authorId === session.user.id;
-    const isAdmin = session.user.role === UserRole.ADMIN;
-
-    if (!isAuthor && !isAdmin) {
+    // Cek apakah project masih memiliki data terkait
+    if (project._count.versions > 0) {
       return NextResponse.json(
-        { error: 'Forbidden' },
-        { status: 403 }
+        { 
+          error: 'Cannot delete project that has versions',
+          count: project._count.versions,
+          message: `Project has ${project._count.versions} version(s)`
+        },
+        { status: 409 }
       );
     }
 
-    // Hapus project (cascade akan menghapus relasi)
+    // Hapus project (cascade akan menghapus data terkait)
     await prisma.project.delete({
       where: { id },
     });
 
-    return NextResponse.json({ message: 'Project deleted successfully' });
+    return NextResponse.json({ 
+      message: 'Project deleted successfully' 
+    });
   } catch (error) {
     console.error('Error in DELETE /api/projects/[id]:', error);
     return NextResponse.json(

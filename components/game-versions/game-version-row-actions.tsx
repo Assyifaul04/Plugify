@@ -21,8 +21,13 @@ export default function GameVersionRowActions({
         mode="edit"
         gameVersionId={gameVersion.id}
         trigger={
-          <Button variant="ghost" size="icon">
-            <PencilIcon className="size-4" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <PencilIcon className="h-4 w-4" />
+            <span className="sr-only">Edit</span>
           </Button>
         }
       />
@@ -33,9 +38,10 @@ export default function GameVersionRowActions({
           <Button
             variant="ghost"
             size="icon"
-            className="text-destructive hover:text-destructive"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
           >
-            <Trash2Icon className="size-4" />
+            <Trash2Icon className="h-4 w-4" />
+            <span className="sr-only">Hapus</span>
           </Button>
         }
       />

@@ -20,7 +20,11 @@ export default function CategoryRowActions({ category }: CategoryRowActionsProps
         mode="edit"
         categoryId={category.id}
         trigger={
-          <Button variant="ghost" size="icon">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
             <PencilIcon className="size-4" />
           </Button>
         }
@@ -32,7 +36,7 @@ export default function CategoryRowActions({ category }: CategoryRowActionsProps
           <Button
             variant="ghost"
             size="icon"
-            className="text-destructive hover:text-destructive"
+            className="rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
           >
             <Trash2Icon className="size-4" />
           </Button>

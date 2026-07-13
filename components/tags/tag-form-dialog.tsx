@@ -6,7 +6,15 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Tag } from '@prisma/client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,7 +60,6 @@ export default function TagFormDialog({
     formState: { errors },
     reset,
     watch,
-    setValue,
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -61,9 +68,14 @@ export default function TagFormDialog({
   });
 
   const nameValue = watch('name');
-
-  // Auto-generate preview slug (optional)
   const slugPreview = nameValue ? generateSlug(nameValue) : '';
+
+  // Reset form saat dialog dibuka untuk edit (agar data terisi)
+  useEffect(() => {
+    if (open && mode === 'edit' && tag) {
+      reset({ name: tag.name });
+    }
+  }, [open, mode, tag, reset]);
 
   const onSubmit = async (values: FormValues) => {
     setLoading(true);
@@ -95,9 +107,11 @@ export default function TagFormDialog({
     }
   };
 
+  // Trigger default untuk create (tanpa trigger dari parent)
   const defaultTrigger = mode === 'create' ? (
-    <Button>
-      <Plus className="mr-2 h-4 w-4" /> Tambah Tag
+    <Button className="rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500">
+      <Plus className="size-4" />
+      Tambah Tag
     </Button>
   ) : undefined;
 
@@ -106,38 +120,62 @@ export default function TagFormDialog({
       <DialogTrigger asChild>
         {trigger || defaultTrigger}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[400px]">
-        <DialogHeader>
-          <DialogTitle>
-            {mode === 'create' ? 'Tambah Tag Baru' : 'Edit Tag'}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <Label>Nama Tag</Label>
-            <Input 
-              placeholder="Contoh: Adventure" 
-              {...register('name')} 
-            />
-            {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+      <DialogContent className="rounded-2xl sm:max-w-md">
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <DialogHeader>
+            <DialogTitle>
+              {mode === 'create' ? 'Tambah Tag Baru' : 'Edit Tag'}
+            </DialogTitle>
+            <DialogDescription>
+              {mode === 'create'
+                ? 'Buat tag baru untuk mengelompokkan project.'
+                : 'Perbarui informasi tag.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-5 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Nama Tag</Label>
+              <Input
+                id="name"
+                placeholder="cth. Adventure"
+                {...register('name')}
+                className="rounded-lg focus-visible:ring-2 focus-visible:ring-ring/40"
+              />
+              {errors.name && (
+                <p className="text-sm text-red-500">{errors.name.message}</p>
+              )}
+            </div>
+
+            {nameValue && (
+              <div className="rounded-lg border border-border/60 bg-muted/40 px-4 py-3 text-sm">
+                <span className="text-muted-foreground">Slug: </span>
+                <span className="font-mono font-medium text-foreground">
+                  {slugPreview}
+                </span>
+              </div>
+            )}
           </div>
 
-          {nameValue && (
-            <div className="p-3 bg-muted/50 rounded-md text-sm">
-              <span className="text-muted-foreground">Slug: </span>
-              <span className="font-mono font-medium">{slugPreview}</span>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={loading}
+              className="rounded-full"
+            >
               Batal
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {mode === 'create' ? 'Simpan' : 'Update'}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500"
+            >
+              {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Simpan
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

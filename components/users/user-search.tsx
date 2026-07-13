@@ -1,13 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { useDebouncedCallback } from 'use-debounce';
 
 export default function UserSearch({ initialSearch = '' }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [value, setValue] = useState(initialSearch);
 
   const handleSearch = useDebouncedCallback((term: string) => {
     const params = new URLSearchParams(window.location.search);
@@ -20,15 +22,36 @@ export default function UserSearch({ initialSearch = '' }) {
     router.push(`${pathname}?${params.toString()}`);
   }, 300);
 
+  const onChange = (term: string) => {
+    setValue(term);
+    handleSearch(term);
+  };
+
+  const clear = () => {
+    setValue('');
+    handleSearch('');
+  };
+
   return (
-    <div className="relative flex-1">
-      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+    <div className="relative max-w-sm flex-1">
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         placeholder="Cari nama, email, atau username..."
-        defaultValue={initialSearch}
-        onChange={(e) => handleSearch(e.target.value)}
-        className="pl-8"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="pl-8 pr-8"
+        aria-label="Cari pengguna"
       />
+      {value && (
+        <button
+          type="button"
+          onClick={clear}
+          className="absolute right-2 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Hapus pencarian"
+        >
+          <X className="size-3.5" />
+        </button>
+      )}
     </div>
   );
 }

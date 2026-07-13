@@ -2,18 +2,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 
-// GET: Ambil semua categories
+const VALID_PROJECT_TYPES = [
+  'MOD',
+  'MODPACK',
+  'SHADER',
+  'PLUGIN',
+  'RESOURCE_PACK',
+  'DATA_PACK',
+  'MAP',
+];
+
+// GET: Ambil categories (dengan pagination)
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get('search') || '';
     const projectType = searchParams.get('projectType');
+    const page = Math.max(1, Number(searchParams.get('page')) || 1);
+    const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit')) || 10));
 
-    // Build where clause
-    const where: any = {};
-    
+    const where: Prisma.CategoryWhereInput = {};
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -25,28 +36,27 @@ export async function GET(req: NextRequest) {
       where.projectTypes = { has: projectType };
     }
 
-    const categories = await prisma.category.findMany({
-      where,
-      orderBy: {
-        name: 'asc',
-      },
-      include: {
-        projects: {
-          select: {
-            projectId: true,
+    const [categories, totalCount] = await Promise.all([
+      prisma.category.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          _count: {
+            select: { projects: true },
           },
         },
-      },
+      }),
+      prisma.category.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      categories,
+      currentPage: page,
+      totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+      totalCount,
     });
-
-    // Format response dengan count projects
-    const formattedCategories = categories.map(category => ({
-      ...category,
-      projectCount: category.projects.length,
-      projects: undefined, // Hapus field projects dari response
-    }));
-
-    return NextResponse.json(formattedCategories);
   } catch (error) {
     console.error('Error in GET /api/categories:', error);
     return NextResponse.json(
@@ -61,15 +71,10 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    // Cek autentikasi
     if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Hanya ADMIN yang bisa membuat category
     if (session.user.role !== UserRole.ADMIN) {
       return NextResponse.json(
         { error: 'Forbidden - Admin only' },
@@ -78,41 +83,38 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, icon, projectTypes } = body;
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const icon = typeof body.icon === 'string' ? body.icon.trim() : null;
+    const projectTypes = body.projectTypes;
 
-    // Validasi input
     if (!name) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    // Generate slug dari name
-    const slug = name
+    const baseSlug = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
-    // Cek apakah slug sudah ada
-    const existingCategory = await prisma.category.findUnique({
-      where: { slug },
-    });
-
-    if (existingCategory) {
+    if (!baseSlug) {
       return NextResponse.json(
-        { error: 'Category with this name already exists' },
-        { status: 409 }
+        { error: 'Name must contain at least one letter or number' },
+        { status: 400 }
       );
     }
 
-    // Validasi projectTypes
-    const validProjectTypes = ['MOD', 'MODPACK', 'SHADER', 'PLUGIN', 'RESOURCE_PACK', 'DATA_PACK', 'MAP'];
-    const validatedProjectTypes = projectTypes?.filter((type: string) => 
-      validProjectTypes.includes(type)
-    ) || [];
+    // Cari slug unik: kalau "teknologi" sudah ada, coba "teknologi-2", dst.
+    let slug = baseSlug;
+    let suffix = 2;
+    while (await prisma.category.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${suffix}`;
+      suffix++;
+    }
 
-    // Buat category baru
+    const validatedProjectTypes = Array.isArray(projectTypes)
+      ? projectTypes.filter((type: string) => VALID_PROJECT_TYPES.includes(type))
+      : [];
+
     const category = await prisma.category.create({
       data: {
         name,
