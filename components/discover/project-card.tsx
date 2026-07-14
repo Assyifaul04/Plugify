@@ -11,17 +11,12 @@ import { id } from "date-fns/locale";
 
 interface ProjectWithRelations extends Project {
   author: Pick<User, "name" | "username" | "image">;
-  categories: {
-    category: Category;
-  }[];
+  categories: { category: Category }[];
   versions: (Version & {
     gameVersions: { gameVersion: GameVersion }[];
     loaders: { loader: Loader }[];
   })[];
-  _count: {
-    follows: number;
-    reviews: number;
-  };
+  _count: { reviews: number };
 }
 
 interface ProjectCardProps {
@@ -32,39 +27,46 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const latestVersion = project.versions?.[0];
   const loaders = latestVersion?.loaders?.map((l) => l.loader.name) || [];
   const gameVersions = latestVersion?.gameVersions?.map((gv) => gv.gameVersion.version) || [];
+  const categoryTags = project.categories?.map((c) => c.category.name) || [];
 
-  // Format angka dengan aman
   const formatCount = (count: number | undefined | null): string => {
     if (count == null) return "0";
     const num = Number(count);
     if (isNaN(num)) return "0";
-    if (num >= 1_000_000) {
-      return (num / 1_000_000).toFixed(1) + "M";
-    }
-    if (num >= 1_000) {
-      return (num / 1_000).toFixed(1) + "K";
-    }
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
+    if (num >= 1_000) return (num / 1_000).toFixed(1) + "K";
     return num.toString();
+  };
+
+  // ✅ Fix: Validasi tanggal sebelum format
+  const formatRelativeTime = (date: Date | string | null | undefined): string => {
+    if (!date) return "Recently";
+    try {
+      const parsedDate = typeof date === "string" ? new Date(date) : date;
+      if (isNaN(parsedDate.getTime())) return "Recently";
+      return formatDistanceToNow(parsedDate, { addSuffix: true, locale: id });
+    } catch {
+      return "Recently";
+    }
   };
 
   const downloadCount = Number(project.downloadCount) || 0;
   const followCount = project._count?.follows || 0;
 
   return (
-    <Card className="group overflow-hidden rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm transition-all hover:border-border hover:shadow-lg">
+    <Card className="group overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:border-orange-500/30 hover:bg-accent/50">
       <Link href={`/projects/${project.slug}`} className="block">
         <div className="flex items-start gap-4">
-          {/* Icon */}
           {project.iconUrl ? (
             <Image
               src={project.iconUrl}
               alt={project.name}
               width={56}
               height={56}
-              className="h-14 w-14 shrink-0 rounded-xl border border-border/60 bg-background object-cover shadow-sm"
+              className="h-14 w-14 shrink-0 rounded-xl border border-border bg-card object-cover"
             />
           ) : (
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-xl font-bold text-emerald-600 dark:text-emerald-400">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-xl font-bold text-orange-400">
               {project.name.charAt(0)}
             </div>
           )}
@@ -72,7 +74,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="truncate text-base font-semibold leading-tight">
+                <h3 className="truncate text-base font-semibold leading-tight text-foreground">
                   {project.name}
                   <span className="ml-2 truncate text-sm font-normal text-muted-foreground">
                     by {project.author?.name || project.author?.username || "Unknown"}
@@ -93,10 +95,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                 </div>
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
-                  {formatDistanceToNow(new Date(project.createdAt), {
-                    addSuffix: true,
-                    locale: id,
-                  })}
+                  {formatRelativeTime(project.createdAt)}
                 </span>
               </div>
             </div>
@@ -106,29 +105,28 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <Badge variant="outline" className="text-xs font-normal border-border/60">
-                Client or server
-              </Badge>
-              <Badge variant="outline" className="text-xs font-normal border-border/60">
-                Library
-              </Badge>
+              {categoryTags.slice(0, 2).map((tag) => (
+                <Badge key={tag} variant="outline" className="border-border text-xs font-normal text-muted-foreground">
+                  {tag}
+                </Badge>
+              ))}
               {loaders.slice(0, 2).map((loader) => (
                 <Badge
                   key={loader}
                   variant="outline"
-                  className="flex items-center gap-1 text-xs font-normal border-border/60"
+                  className="flex items-center gap-1 border-border text-xs font-normal text-muted-foreground"
                 >
                   <Blocks className="h-3 w-3" />
                   {loader}
                 </Badge>
               ))}
               {loaders.length > 2 && (
-                <Badge variant="outline" className="text-xs font-normal border-border/60">
+                <Badge variant="outline" className="border-border text-xs font-normal text-muted-foreground">
                   +{loaders.length - 2}
                 </Badge>
               )}
               {gameVersions.length > 0 && (
-                <Badge variant="secondary" className="px-1.5 text-xs font-normal">
+                <Badge className="bg-orange-500/15 px-1.5 text-xs font-normal text-orange-400 hover:bg-orange-500/15">
                   MC {gameVersions[0]}
                   {gameVersions.length > 1 && ` +${gameVersions.length - 1}`}
                 </Badge>

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { UserRole } from '@prisma/client';
+import { UserRole, ProjectStatus, ProjectType, GamePlatform } from '@prisma/client';
+import { serializeBigInts } from '@/lib/serializer';
 
 // GET: Ambil project by ID (detail)
 export async function GET(
@@ -113,17 +114,10 @@ export async function GET(
       );
     }
 
-    // Log untuk debugging
-    console.log('Project data:', {
-      id: project.id,
-      name: project.name,
-      summary: project.summary,
-      description: project.description?.substring(0, 50),
-      iconUrl: project.iconUrl,
-      bannerUrl: project.bannerUrl,
-    });
+    // Serialize BigInt fields before sending response
+    const serializedProject = serializeBigInts(project);
 
-    return NextResponse.json(project);
+    return NextResponse.json(serializedProject);
   } catch (error) {
     console.error('Error in GET /api/projects/[id]:', error);
     return NextResponse.json(
@@ -208,6 +202,12 @@ export async function PUT(
       }
     }
 
+    // Tentukan publishedAt
+    let publishedAt = existingProject.publishedAt;
+    if (status === ProjectStatus.PUBLISHED && existingProject.status !== ProjectStatus.PUBLISHED) {
+      publishedAt = new Date();
+    }
+
     const project = await prisma.project.update({
       where: { id },
       data: {
@@ -215,9 +215,9 @@ export async function PUT(
         slug,
         summary,
         description,
-        type,
-        platform,
-        status,
+        type: type as ProjectType,
+        platform: platform as GamePlatform,
+        status: status as ProjectStatus,
         iconUrl: iconUrl || null,
         bannerUrl: bannerUrl || null,
         sourceUrl: sourceUrl || null,
@@ -227,13 +227,13 @@ export async function PUT(
         donationUrl: donationUrl || null,
         licenseId: licenseId || null,
         organizationId: organizationId || null,
-        publishedAt: status === 'PUBLISHED' && existingProject.status !== 'PUBLISHED' 
-          ? new Date() 
-          : existingProject.publishedAt,
+        publishedAt,
       },
     });
 
-    return NextResponse.json(project);
+    // Serialize BigInt fields before sending response
+    const serializedProject = serializeBigInts(project);
+    return NextResponse.json(serializedProject);
   } catch (error) {
     console.error('Error in PUT /api/projects/[id]:', error);
     return NextResponse.json(
@@ -283,7 +283,7 @@ export async function DELETE(
       return NextResponse.json(
         { 
           error: 'Cannot delete project that has versions',
-          count: project._count.versions,
+          count: Number(project._count.versions),
           message: `Project has ${project._count.versions} version(s)`
         },
         { status: 409 }

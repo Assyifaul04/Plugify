@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { UserRole, Prisma } from '@prisma/client';
+import { UserRole, Prisma, ProjectStatus, ProjectType, GamePlatform } from '@prisma/client';
+import { serializeBigInts } from '@/lib/serializer';
 
 // GET: Ambil semua projects dengan pagination & filter
 export async function GET(req: NextRequest) {
@@ -32,15 +33,15 @@ export async function GET(req: NextRequest) {
     }
 
     if (type && type !== 'ALL') {
-      where.type = type as any;
+      where.type = type as ProjectType;
     }
 
     if (platform && platform !== 'ALL') {
-      where.platform = platform as any;
+      where.platform = platform as GamePlatform;
     }
 
     if (status && status !== 'ALL') {
-      where.status = status as any;
+      where.status = status as ProjectStatus;
     }
 
     const [projects, totalCount] = await Promise.all([
@@ -58,6 +59,7 @@ export async function GET(req: NextRequest) {
           status: true,
           iconUrl: true,
           downloadCount: true,
+          followCount: true,
           createdAt: true,
           publishedAt: true,
           organization: {
@@ -87,8 +89,11 @@ export async function GET(req: NextRequest) {
       prisma.project.count({ where }),
     ]);
 
+    // Serialize semua BigInt fields menggunakan utility function
+    const serializedProjects = projects.map(project => serializeBigInts(project));
+
     return NextResponse.json({
-      projects,
+      projects: serializedProjects,
       currentPage: page,
       totalPages: Math.ceil(totalCount / limit),
       totalCount,
@@ -157,9 +162,9 @@ export async function POST(req: NextRequest) {
         slug,
         summary,
         description,
-        type,
-        platform,
-        status: status || 'DRAFT',
+        type: type as ProjectType,
+        platform: platform as GamePlatform,
+        status: (status as ProjectStatus) || ProjectStatus.DRAFT,
         iconUrl: iconUrl || null,
         bannerUrl: bannerUrl || null,
         sourceUrl: sourceUrl || null,
@@ -170,11 +175,14 @@ export async function POST(req: NextRequest) {
         licenseId: licenseId || null,
         organizationId: organizationId || null,
         authorId: session.user.id,
-        publishedAt: status === 'PUBLISHED' ? new Date() : null,
+        publishedAt: status === ProjectStatus.PUBLISHED ? new Date() : null,
       },
     });
 
-    return NextResponse.json(project, { status: 201 });
+    // Serialize semua BigInt fields menggunakan utility function
+    const serializedProject = serializeBigInts(project);
+
+    return NextResponse.json(serializedProject, { status: 201 });
   } catch (error) {
     console.error('Error in POST /api/projects:', error);
     return NextResponse.json(

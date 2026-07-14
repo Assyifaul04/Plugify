@@ -6,13 +6,13 @@ import { UserRole } from "@prisma/client";
 import DashboardProjectsClient from "./page-client";
 
 interface DashboardProjectsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     page?: string;
     search?: string;
     type?: string;
     platform?: string;
     status?: string;
-  };
+  }>;
 }
 
 export default async function DashboardProjectsPage({
@@ -24,12 +24,14 @@ export default async function DashboardProjectsPage({
     redirect("/dashboard");
   }
 
-  const page = Math.max(1, Number(searchParams.page) || 1);
+  // Await searchParams before using its properties
+  const resolvedSearchParams = await searchParams;
+  const page = Math.max(1, Number(resolvedSearchParams.page) || 1);
   const limit = 10;
-  const search = searchParams.search || "";
-  const type = searchParams.type || "";
-  const platform = searchParams.platform || "";
-  const status = searchParams.status || "";
+  const search = resolvedSearchParams.search || "";
+  const type = resolvedSearchParams.type || "";
+  const platform = resolvedSearchParams.platform || "";
+  const status = resolvedSearchParams.status || "";
 
   const where: any = {};
 

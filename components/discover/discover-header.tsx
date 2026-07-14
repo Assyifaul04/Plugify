@@ -9,107 +9,131 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Sparkles, SlidersHorizontal } from "lucide-react";
+import { Search, LayoutGrid, List } from "lucide-react";
 import { useDebouncedCallback } from "use-debounce";
+import { cn } from "@/lib/utils";
+import DiscoverPagination from "./discover-pagination";
 
 interface DiscoverHeaderProps {
   initialQuery: string;
   initialSort: string;
+  initialLimit: string;
   totalResults: number;
   currentResults: number;
+  currentPage: number;
+  totalPages: number;
+  view: "list" | "grid";
+  onViewChange: (view: "list" | "grid") => void;
 }
 
 const sortOptions = [
   { value: "newest", label: "Newest" },
-  { value: "popular", label: "Most Downloads" },
+  { value: "popular", label: "Most downloads" },
   { value: "trending", label: "Trending" },
-  { value: "updated", label: "Recently Updated" },
+  { value: "updated", label: "Recently updated" },
 ];
+
+const limitOptions = ["10", "20", "50", "100"];
 
 export default function DiscoverHeader({
   initialQuery,
   initialSort,
+  initialLimit,
   totalResults,
   currentResults,
+  currentPage,
+  totalPages,
+  view,
+  onViewChange,
 }: DiscoverHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const handleSearch = useDebouncedCallback((value: string) => {
+  const updateParam = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value) {
-      params.set("q", value);
-    } else {
-      params.delete("q");
-    }
-    params.set("page", "1");
-    router.push(`${pathname}?${params.toString()}`);
-  }, 300);
-
-  const handleSort = (value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("sort", value);
+    if (value) params.set(key, value);
+    else params.delete(key);
     params.set("page", "1");
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  return (
-    <div className="mb-6 rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900/80 via-zinc-900/50 to-orange-950/30 p-4 shadow-sm backdrop-blur-sm sm:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-orange-400">
-            <Sparkles className="h-4 w-4" />
-            Discover your next favorite project
-          </div>
-          <h2 className="text-xl font-semibold tracking-tight text-zinc-100">
-            Browse mods, shaders, plugins, and more
-          </h2>
-          <p className="text-sm text-zinc-400">
-            Search across the community and filter by platform, loader, and version.
-          </p>
-        </div>
+  const handleSearch = useDebouncedCallback((value: string) => {
+    updateParam("q", value);
+  }, 300);
 
-        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-zinc-800/60 px-3 py-2 text-sm text-zinc-300">
-          <SlidersHorizontal className="h-4 w-4" />
-          <span>{totalResults.toLocaleString()} projects available</span>
-        </div>
+  return (
+    <div className="mb-4 space-y-3">
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search mods..."
+          defaultValue={initialQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          className="h-11 rounded-full border-border bg-card pl-11 text-foreground placeholder:text-muted-foreground focus-visible:ring-orange-500"
+        />
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
-          <Input
-            placeholder="Search mods, shaders, plugins..."
-            defaultValue={initialQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="h-11 rounded-full border-white/10 bg-zinc-800/60 pl-10 text-zinc-100 placeholder:text-zinc-500 shadow-sm focus-visible:ring-orange-500"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-2 lg:justify-end">
-          <p className="text-sm text-zinc-400">
-            Showing <span className="font-medium text-zinc-100">{currentResults}</span> of{" "}
-            <span className="font-medium text-zinc-100">{totalResults.toLocaleString()}</span> projects
-          </p>
-          <Select defaultValue={initialSort || "newest"} onValueChange={handleSort}>
-            <SelectTrigger className="h-9 w-[160px] border-white/10 bg-zinc-800/60 text-zinc-100 focus:ring-orange-500">
-              <SelectValue placeholder="Sort by" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <span>Sort by:</span>
+          <Select defaultValue={initialSort || "newest"} onValueChange={(v) => updateParam("sort", v)}>
+            <SelectTrigger className="h-8 w-auto gap-1 border-none bg-transparent px-1 text-foreground shadow-none hover:text-orange-400 focus:ring-0">
+              <SelectValue />
             </SelectTrigger>
-            <SelectContent className="border-white/10 bg-zinc-900 text-zinc-100">
+            <SelectContent className="border-border bg-card text-foreground">
               {sortOptions.map((opt) => (
-                <SelectItem
-                  key={opt.value}
-                  value={opt.value}
-                  className="focus:bg-orange-500/20 focus:text-orange-400"
-                >
+                <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          <span className="ml-3">View:</span>
+          <Select defaultValue={initialLimit || "20"} onValueChange={(v) => updateParam("limit", v)}>
+            <SelectTrigger className="h-8 w-auto gap-1 border-none bg-transparent px-1 text-foreground shadow-none hover:text-orange-400 focus:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="border-border bg-card text-foreground">
+              {limitOptions.map((opt) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="ml-1 flex items-center rounded-md border border-border bg-card p-0.5">
+            <button
+              onClick={() => onViewChange("list")}
+              className={cn(
+                "rounded p-1 transition-colors",
+                view === "list" ? "bg-orange-500/20 text-orange-400" : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-label="List view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => onViewChange("grid")}
+              className={cn(
+                "rounded p-1 transition-colors",
+                view === "grid" ? "bg-orange-500/20 text-orange-400" : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-label="Grid view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
         </div>
+
+        <DiscoverPagination currentPage={currentPage} totalPages={totalPages} compact />
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Showing {currentResults} of {totalResults.toLocaleString()} results
+      </p>
     </div>
   );
 }

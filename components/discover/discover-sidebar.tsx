@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Category, Loader, GameVersion, GamePlatform } from "@prisma/client";
+import { Category, Loader, GameVersion } from "@prisma/client";
 import {
   Accordion,
   AccordionContent,
@@ -9,10 +10,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 
 interface FilterOptions {
   categories: (Category & { _count: { projects: number } })[];
@@ -37,6 +38,11 @@ interface DiscoverSidebarProps {
   };
 }
 
+const platformLabels: Record<string, string> = {
+  JAVA: "Java",
+  BEDROCK: "Bedrock",
+};
+
 const typeLabels: Record<string, string> = {
   MOD: "Mod",
   MODPACK: "Modpack",
@@ -45,11 +51,6 @@ const typeLabels: Record<string, string> = {
   RESOURCE_PACK: "Resource Pack",
   DATA_PACK: "Data Pack",
   MAP: "Map",
-};
-
-const platformLabels: Record<string, string> = {
-  JAVA: "Java",
-  BEDROCK: "Bedrock",
 };
 
 export default function DiscoverSidebar({
@@ -63,6 +64,9 @@ export default function DiscoverSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [versionQuery, setVersionQuery] = useState("");
+  const [showAllVersions, setShowAllVersions] = useState(false);
+  const [showAllLoaders, setShowAllLoaders] = useState(false);
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -75,208 +79,236 @@ export default function DiscoverSidebar({
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  // Loaders & versions difilter berdasarkan platform aktif (kalau ada dipilih)
-  const filteredLoaders = activeFilters.platform
+  const clearFilters = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    ["category", "loader", "version", "platform", "type", "q", "sort"].forEach((key) =>
+      params.delete(key)
+    );
+    params.set("page", "1");
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const loadersByPlatform = activeFilters.platform
     ? loaders.filter((l) => l.platform === activeFilters.platform)
     : loaders;
 
-  const filteredVersions = activeFilters.platform
+  const versionsByPlatform = activeFilters.platform
     ? versions.filter((v) => v.platform === activeFilters.platform)
     : versions;
 
-  const FilterItem = ({
-    label,
-    value,
-    filterKey,
-    count,
-    active,
-    icon,
-    subLabel,
-  }: {
-    label: string;
-    value: string;
-    filterKey: string;
-    count?: number;
-    active?: boolean;
-    icon?: string;
-    subLabel?: string;
-  }) => (
-    <div
-      className={cn(
-        "flex items-center justify-between rounded-lg border px-3 py-2 transition-colors",
-        active
-          ? "border-orange-500/40 bg-orange-500/10"
-          : "border-zinc-700/50 bg-zinc-800/40 hover:bg-zinc-700/50"
-      )}
-    >
-      <label className="flex flex-1 cursor-pointer items-center gap-2 text-sm">
-        <Checkbox
-          checked={active || false}
-          onCheckedChange={() => updateFilter(filterKey, value)}
-          className="h-4 w-4 border-zinc-400 data-[state=checked]:border-orange-500 data-[state=checked]:bg-orange-500"
-        />
-        <span className="flex flex-col">
-          <span className="flex items-center gap-1 text-zinc-100">
-            {icon && <span>{icon}</span>}
-            {label}
-          </span>
-          {subLabel && (
-            <span className="text-xs text-zinc-400">{subLabel}</span>
-          )}
-        </span>
-      </label>
-      {count !== undefined && (
-        <Badge
-          variant={active ? "default" : "secondary"}
-          className={cn(
-            "text-xs font-normal",
-            active
-              ? "bg-orange-500 text-white"
-              : "bg-zinc-700 text-zinc-300"
-          )}
-        >
-          {count}
-        </Badge>
-      )}
-    </div>
-  );
+  const searchedVersions = versionQuery
+    ? versionsByPlatform.filter((v) =>
+        v.version.toLowerCase().includes(versionQuery.toLowerCase())
+      )
+    : versionsByPlatform;
+
+  const visibleVersions = showAllVersions ? searchedVersions : searchedVersions.slice(0, 8);
+  const visibleLoaders = showAllLoaders ? loadersByPlatform : loadersByPlatform.slice(0, 6);
+
+  const checkboxClass =
+    "h-3.5 w-3.5 border-border data-[state=checked]:border-orange-500 data-[state=checked]:bg-orange-500";
+
+  const hasActiveFilters = Object.values(activeFilters).some((v) => v && v !== "all");
+  const activeFilterCount = Object.values(activeFilters).filter((v) => v && v !== "all").length;
 
   return (
-    <div className="sticky top-24 rounded-2xl border border-zinc-700/50 bg-zinc-900/80 p-4 shadow-sm backdrop-blur-sm">
-      <div className="mb-4 flex items-start justify-between gap-2">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-100">Filters</h2>
-          <p className="text-sm text-zinc-400">
-            Narrow down by type, loader, and version.
-          </p>
+    <div className="sticky top-24 rounded-2xl border border-border bg-card/60 p-4 backdrop-blur-sm">
+      {/* Header */}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <SlidersHorizontal className="h-3.5 w-3.5 text-orange-400" />
+          Filters
+          {activeFilterCount > 0 && (
+            <span className="ml-1 rounded-full bg-orange-500/20 px-1.5 py-0.5 text-[10px] text-orange-400">
+              {activeFilterCount}
+            </span>
+          )}
         </div>
-        <div className="rounded-full bg-orange-500/15 p-2 text-orange-400">
-          <SlidersHorizontal className="h-4 w-4" />
-        </div>
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-orange-400"
+          >
+            <X className="h-3 w-3" />
+            Clear
+          </button>
+        )}
       </div>
 
-      <ScrollArea className="h-[calc(100vh-220px)] pr-3">
-        <Accordion type="multiple" defaultValue={["platforms", "game-versions", "categories", "loaders"]}>
-          <AccordionItem value="platforms" className="border-zinc-700/50">
-            <AccordionTrigger className="text-sm font-medium text-zinc-100 hover:no-underline hover:text-zinc-50">
-              Platforms
-            </AccordionTrigger>
-            <AccordionContent className="space-y-2">
-              {platforms.map((p) => (
-                <FilterItem
-                  key={p.platform}
-                  label={platformLabels[p.platform] || p.platform}
-                  value={p.platform}
-                  filterKey="platform"
-                  count={p._count.platform}
-                  active={activeFilters.platform === p.platform}
-                />
-              ))}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="game-versions" className="border-zinc-700/50">
-            <AccordionTrigger className="text-sm font-medium text-zinc-100 hover:no-underline hover:text-zinc-50">
-              Game versions
-            </AccordionTrigger>
-            <AccordionContent className="space-y-2">
-              {filteredVersions.slice(0, 10).map((v) => (
-                <FilterItem
-                  key={v.id}
-                  label={`${v.version}${v.isMajor ? " ⭐" : ""}${v.isBeta ? " β" : ""}`}
-                  value={v.version}
-                  filterKey="version"
-                  subLabel={platformLabels[v.platform] || v.platform}
-                  active={activeFilters.version === v.version}
-                />
-              ))}
-              {filteredVersions.length > 10 && (
-                <div className="mt-1 text-xs text-zinc-400">
-                  +{filteredVersions.length - 10} more versions
-                </div>
+      {/* Platform Tabs */}
+      {platforms.length > 0 && (
+        <div className="mb-4 flex items-center gap-0.5 rounded-full border border-border bg-card p-0.5 text-xs">
+          {platforms.map((p) => (
+            <button
+              key={p.platform}
+              onClick={() => updateFilter("platform", p.platform)}
+              className={cn(
+                "rounded-full px-2.5 py-0.5 transition-colors",
+                activeFilters.platform === p.platform
+                  ? "bg-orange-500 text-white"
+                  : "text-muted-foreground hover:text-foreground"
               )}
-              {filteredVersions.length === 0 && (
-                <div className="mt-1 text-xs text-zinc-400">
-                  No versions for this platform.
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
+            >
+              {platformLabels[p.platform] || p.platform}
+            </button>
+          ))}
+        </div>
+      )}
 
-          <AccordionItem value="categories" className="border-zinc-700/50">
-            <AccordionTrigger className="text-sm font-medium text-zinc-100 hover:no-underline hover:text-zinc-50">
-              Categories
+      <ScrollArea className="max-h-[calc(100vh-300px)] pr-2">
+        <Accordion type="multiple" defaultValue={["game-versions", "loaders", "categories", "types"]}>
+          {/* Game Versions */}
+          <AccordionItem value="game-versions" className="border-border">
+            <AccordionTrigger className="text-sm font-medium text-foreground hover:no-underline">
+              Game Version
             </AccordionTrigger>
             <AccordionContent className="space-y-2">
-              {categories.map((c) => (
-                <FilterItem
-                  key={c.id}
-                  label={c.name}
-                  value={c.slug}
-                  filterKey="category"
-                  count={c._count.projects}
-                  icon={c.icon ?? undefined}
-                  active={activeFilters.category === c.slug}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={versionQuery}
+                  onChange={(e) => setVersionQuery(e.target.value)}
+                  placeholder="Search version..."
+                  className="h-8 border-border bg-card pl-8 text-xs text-foreground placeholder:text-muted-foreground focus-visible:ring-orange-500"
                 />
-              ))}
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="loaders" className="border-zinc-700/50">
-            <AccordionTrigger className="text-sm font-medium text-zinc-100 hover:no-underline hover:text-zinc-50">
-              Loaders
-            </AccordionTrigger>
-            <AccordionContent className="space-y-2">
-              {filteredLoaders.map((l) => (
-                <FilterItem
-                  key={l.id}
-                  label={l.name}
-                  value={l.name}
-                  filterKey="loader"
-                  count={l._count.versions}
-                  icon={l.icon ?? undefined}
-                  subLabel={platformLabels[l.platform] || l.platform}
-                  active={activeFilters.loader === l.name}
-                />
-              ))}
-              {filteredLoaders.length === 0 && (
-                <div className="mt-1 text-xs text-zinc-400">
-                  No loaders for this platform.
-                </div>
+              </div>
+              <div className="space-y-1">
+                {visibleVersions.length > 0 ? (
+                  visibleVersions.map((v) => (
+                    <label
+                      key={v.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <Checkbox
+                        checked={activeFilters.version === v.version}
+                        onCheckedChange={() => updateFilter("version", v.version)}
+                        className={checkboxClass}
+                      />
+                      <span>{v.version}</span>
+                      {v.isBeta && (
+                        <span className="text-[10px] text-yellow-500">β</span>
+                      )}
+                      {v.isMajor && (
+                        <span className="text-[10px] text-orange-400">★</span>
+                      )}
+                    </label>
+                  ))
+                ) : (
+                  <p className="px-1 text-xs text-muted-foreground">No versions found.</p>
+                )}
+              </div>
+              {searchedVersions.length > 8 && (
+                <button
+                  onClick={() => setShowAllVersions((s) => !s)}
+                  className="px-1 pt-1 text-xs text-muted-foreground transition-colors hover:text-orange-400"
+                >
+                  {showAllVersions ? "Show less" : `Show all (${searchedVersions.length})`}
+                </button>
               )}
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="types" className="border-zinc-700/50">
-            <AccordionTrigger className="text-sm font-medium text-zinc-100 hover:no-underline hover:text-zinc-50">
-              Project Types
+          {/* Loaders */}
+          <AccordionItem value="loaders" className="border-border">
+            <AccordionTrigger className="text-sm font-medium text-foreground hover:no-underline">
+              Loader
             </AccordionTrigger>
-            <AccordionContent className="space-y-2">
-              {types.map((t) => (
-                <FilterItem
-                  key={t.type}
-                  label={typeLabels[t.type] || t.type}
-                  value={t.type}
-                  filterKey="type"
-                  count={t._count.type}
-                  active={activeFilters.type === t.type}
-                />
-              ))}
+            <AccordionContent className="space-y-1">
+              {visibleLoaders.length > 0 ? (
+                visibleLoaders.map((l) => (
+                  <label
+                    key={l.id}
+                    className="flex cursor-pointer items-center justify-between rounded px-1 py-1 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Checkbox
+                        checked={activeFilters.loader === l.name}
+                        onCheckedChange={() => updateFilter("loader", l.name)}
+                        className={checkboxClass}
+                      />
+                      {l.icon && <span className="text-sm">{l.icon}</span>}
+                      {l.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{l._count.versions}</span>
+                  </label>
+                ))
+              ) : (
+                <p className="px-1 text-xs text-muted-foreground">No loaders for this platform.</p>
+              )}
+              {loadersByPlatform.length > 6 && (
+                <button
+                  onClick={() => setShowAllLoaders((s) => !s)}
+                  className="px-1 pt-1 text-xs text-muted-foreground transition-colors hover:text-orange-400"
+                >
+                  {showAllLoaders ? "Show less" : `Show all (${loadersByPlatform.length})`}
+                </button>
+              )}
             </AccordionContent>
           </AccordionItem>
+
+          {/* Categories */}
+          <AccordionItem value="categories" className="border-border">
+            <AccordionTrigger className="text-sm font-medium text-foreground hover:no-underline">
+              Category
+            </AccordionTrigger>
+            <AccordionContent className="space-y-1">
+              {categories.length > 0 ? (
+                categories.map((c) => (
+                  <label
+                    key={c.id}
+                    className="flex cursor-pointer items-center justify-between rounded px-1 py-1 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Checkbox
+                        checked={activeFilters.category === c.slug}
+                        onCheckedChange={() => updateFilter("category", c.slug)}
+                        className={checkboxClass}
+                      />
+                      {c.icon && <span className="text-sm">{c.icon}</span>}
+                      {c.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{c._count.projects}</span>
+                  </label>
+                ))
+              ) : (
+                <p className="px-1 text-xs text-muted-foreground">No categories available.</p>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Types */}
+          {types.length > 0 && (
+            <AccordionItem value="types" className="border-border">
+              <AccordionTrigger className="text-sm font-medium text-foreground hover:no-underline">
+                Type
+              </AccordionTrigger>
+              <AccordionContent className="space-y-1">
+                {types.map((t) => (
+                  <label
+                    key={t.type}
+                    className="flex cursor-pointer items-center justify-between rounded px-1 py-1 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Checkbox
+                        checked={activeFilters.type === t.type}
+                        onCheckedChange={() => updateFilter("type", t.type)}
+                        className={checkboxClass}
+                      />
+                      {typeLabels[t.type] || t.type}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{t._count.type}</span>
+                  </label>
+                ))}
+              </AccordionContent>
+            </AccordionItem>
+          )}
         </Accordion>
 
-        {Object.values(activeFilters).some(Boolean) && (
+        {/* Clear All Filters Button */}
+        {hasActiveFilters && (
           <button
-            onClick={() => {
-              const params = new URLSearchParams(searchParams.toString());
-              ["category", "loader", "version", "platform", "type"].forEach((key) =>
-                params.delete(key)
-              );
-              params.set("page", "1");
-              router.push(`${pathname}?${params.toString()}`);
-            }}
-            className="mt-4 w-full rounded-full border border-dashed border-orange-400/40 bg-orange-500/10 py-2 text-sm font-medium text-orange-400 transition hover:bg-orange-500/20"
+            onClick={clearFilters}
+            className="mt-4 w-full rounded-full border border-dashed border-orange-500/40 bg-orange-500/10 py-2 text-sm font-medium text-orange-400 transition-colors hover:bg-orange-500/20"
           >
             Clear all filters
           </button>

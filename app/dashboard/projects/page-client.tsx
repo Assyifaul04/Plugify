@@ -3,24 +3,10 @@
 import { Suspense } from "react";
 import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import dynamic from "next/dynamic";
+import Link from "next/link";
 import ProjectTable from "@/components/projects/project-table";
 import ProjectFilters from "@/components/projects/project-filters";
 import ProjectPagination from "@/components/projects/project-pagination";
-
-// Dynamic import untuk ProjectFormDialog
-const ProjectFormDialog = dynamic(
-  () => import("@/components/projects/project-form-dialog"),
-  {
-    ssr: false,
-    loading: () => (
-      <Button className="rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500" disabled>
-        <PlusIcon className="size-4" />
-        Tambah Project
-      </Button>
-    ),
-  }
-);
 
 interface DashboardProjectsClientProps {
   projects: any[];
@@ -41,6 +27,8 @@ export default function DashboardProjectsClient({
   platform,
   status,
 }: DashboardProjectsClientProps) {
+  const validProjects = Array.isArray(projects) ? projects : [];
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -52,15 +40,12 @@ export default function DashboardProjectsClient({
             Kelola semua project yang ada di platform
           </p>
         </div>
-        <ProjectFormDialog
-          mode="create"
-          trigger={
-            <Button className="rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500">
-              <PlusIcon className="size-4" />
-              Tambah Project
-            </Button>
-          }
-        />
+        <Link href="/dashboard/projects/create">
+          <Button className="rounded-full bg-orange-600 text-white shadow-sm hover:bg-orange-500">
+            <PlusIcon className="mr-2 h-4 w-4" />
+            Tambah Project
+          </Button>
+        </Link>
       </div>
 
       <ProjectFilters
@@ -71,7 +56,7 @@ export default function DashboardProjectsClient({
       />
 
       <Suspense fallback={<div className="py-8 text-center text-muted-foreground">Loading...</div>}>
-        <ProjectTable projects={projects} />
+        <ProjectTable projects={validProjects} />
       </Suspense>
 
       <ProjectPagination currentPage={currentPage} totalPages={totalPages} />
